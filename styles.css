@@ -115,9 +115,8 @@ body::after{
 
 /* ============ NAV ============ */
 .nav{
-  position: fixed; top: 0; left: 0; right: 0;
-  height: var(--nav-h); padding: 0 var(--gutter);
-  max-width: var(--container); margin: 0 auto;
+  position: fixed; top: 0; left: 0; right: 0; width: 100%;
+  height: var(--nav-h); padding: 0 max(var(--gutter), calc((100vw - var(--container)) / 2 + var(--gutter)));
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px;
   z-index: 100;
   transition: background .35s var(--ease-out), backdrop-filter .35s, border-color .35s;
@@ -215,9 +214,8 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
 
 .section{
   position: relative;
-  max-width: var(--container);
-  margin: 0 auto;
-  padding: 140px var(--gutter) 100px;
+  width: 100%;
+  padding: 140px max(var(--gutter), calc((100vw - var(--container)) / 2 + var(--gutter))) 100px;
 }
 .section::before{
   content: ''; position: absolute; pointer-events: none; z-index: 0;
@@ -332,11 +330,11 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
 .hero{
   position: relative;
   min-height: calc(100vh - var(--nav-h) - 28px);
-  padding: 0 var(--gutter);
-  max-width: var(--container); margin: 0 auto;
+  padding: 0 max(var(--gutter), calc((100vw - var(--container)) / 2 + var(--gutter)));
   display: flex; align-items: center;
   overflow: hidden;
   isolation: isolate;
+  width: 100%;
 }
 #flow-canvas{
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -354,7 +352,7 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
 
 /* Hero content */
 .hero-inner{
-  width: 100%; max-width: var(--container); margin: 0 auto;
+  width: 100%; max-width: calc(var(--container) - var(--gutter) * 2);
   padding: 80px 0 60px;
   display: flex; flex-direction: column; gap: 40px;
 }
@@ -1285,10 +1283,8 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
 .footer{
   position: relative;
   border-top: 1px solid var(--line);
-  padding: 80px var(--gutter) 32px;
+  padding: 80px max(var(--gutter), calc((100vw - var(--container)) / 2 + var(--gutter))) 32px;
   margin-top: 80px;
-  max-width: var(--container);
-  margin-left: auto; margin-right: auto;
 }
 .foot-meta{
   display: flex; align-items: center; gap: 16px;
@@ -1434,6 +1430,36 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
   .brand-word{ font-size: 15px; }
   .nav-cta{ padding: 8px 12px 8px 14px; font-size: 12px; gap: 6px; }
   .cta-arrow{ width: 18px; height: 18px; }
+}
+
+/* ============ LARGE MONITORS (≥ 1800px) ============ */
+@media (min-width: 1800px){
+  :root{
+    --gutter: 64px;
+  }
+  body{ font-size: 16px; }
+  .hero-title{ font-size: clamp(100px, 7.2vw, 156px); }
+  .hero-sub{ font-size: 20px; }
+  .fs-num{ font-size: 64px; }
+  .section-title{ font-size: clamp(52px, 3.8vw, 72px); }
+  .ha-title{ font-size: clamp(60px, 4.4vw, 88px); }
+  .ha-body{ font-size: 21px; }
+  .manifesto-text{ font-size: clamp(48px, 3.2vw, 66px); }
+  .ps-title{ font-size: clamp(40px, 2.8vw, 56px); }
+  .bc-title{ font-size: 30px; }
+  .bento-card.big .bc-title{ font-size: 44px; }
+  .bento-card.wide .bc-title{ font-size: 34px; }
+  .proof-quote blockquote{ font-size: 26px; }
+  .contact-title{ font-size: clamp(44px, 3vw, 64px); }
+  .foot-mega{ font-size: clamp(120px, 10vw, 220px); }
+}
+
+/* ============ ULTRAWIDE (≥ 2400px) ============ */
+@media (min-width: 2400px){
+  :root{
+    --container: 2000px;
+    --gutter: 80px;
+  }
 }
 
 /* ============ REDUCED MOTION ============ */
