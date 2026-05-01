@@ -621,3 +621,43 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   draw();
 })();
 
+/* ==============================================================
+   RECORDING TOOL: CINEMATIC AUTO-SCROLL
+   Press 'S' to start/stop a very smooth, slow scroll.
+   Perfect for screen recordings for X.
+   ============================================================== */
+(function recordingTool() {
+  let isScrolling = false;
+  let currentPos = window.scrollY;
+  const speed = 1.95; // Adjust for speed. 0.6-0.8 is great for "cinematic" feels.
+
+  function step() {
+    if (!isScrolling) return;
+    currentPos += speed;
+    window.scrollTo(0, currentPos);
+
+    if (currentPos >= (document.documentElement.scrollHeight - window.innerHeight - 1)) {
+      isScrolling = false;
+      console.log("Cinematic Scroll: REACHED BOTTOM");
+      return;
+    }
+    requestAnimationFrame(step);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    // Only trigger if not typing in an input/textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key.toLowerCase() === 's') {
+      isScrolling = !isScrolling;
+      if (isScrolling) {
+        currentPos = window.scrollY;
+        console.log("Cinematic Scroll: ACTIVE");
+        step();
+      } else {
+        console.log("Cinematic Scroll: STOPPED");
+      }
+    }
+  });
+})();
+
