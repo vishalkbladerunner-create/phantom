@@ -341,3 +341,283 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   resize();
   start();
 })();
+
+/* ==============================================================
+   HORIZON EFFECT — Scroll-driven chaos → clarity visualization
+   Text fragments CONVERGE (never vanish) — concepts get combined.
+   ============================================================== */
+(function horizonEffect(){
+  const wrap = document.getElementById('horizon');
+  const cv   = document.getElementById('horizon-canvas');
+  if (!cv || !wrap) return;
+
+  const acts     = wrap.querySelectorAll('.horizon-act');
+  const dots     = wrap.querySelectorAll('.hp-dot');
+  const fillBar  = document.getElementById('horizonFill');
+  const foot     = wrap.querySelector('.horizon-foot');
+  const ctx      = cv.getContext('2d', { alpha: true });
+  const DPR      = Math.min(2, window.devicePixelRatio || 1);
+  const TAU      = Math.PI * 2;
+  let W = 0, H = 0, progress = 0, time = 0, raf;
+
+  /* ---- Particles ---- */
+  const N = 150;
+  let particles = [];
+
+  function initParticles(){
+    particles = [];
+    for (let i = 0; i < N; i++){
+      particles.push({
+        sx: Math.random() * W,
+        sy: Math.random() * H,
+        angle: Math.random() * TAU,
+        radius: 18 + Math.random() * 180,
+        speed: 0.18 + Math.random() * 0.48,
+        hue: Math.random() < 0.55 ? 22 : 220,
+        size: 1.4 + Math.random() * 3,
+        offset: Math.random() * TAU
+      });
+    }
+  }
+
+  /* ---- Concept fragments (converge, never vanish) ---- */
+  const FRAGS = [
+    'strategy', 'voice', 'narrative', 'conviction',
+    'signal', 'vision', 'identity', 'platform',
+    'authority', 'clarity', 'purpose', 'resonance'
+  ];
+  let textFrags = [];
+
+  function initFragments(){
+    const cx = W * 0.72, cy = H * 0.5;
+    const R = Math.min(W * 0.15, 155);
+    textFrags = FRAGS.map((t, i) => {
+      const convAngle = (i / FRAGS.length) * TAU - Math.PI / 2;
+      return {
+        text: t,
+        sx: W * 0.2 + Math.random() * W * 0.7,
+        sy: H * 0.06 + Math.random() * H * 0.88,
+        convAngle: convAngle,
+        convR: R,
+        offset: Math.random() * TAU,
+        baseAlpha: 0.24 + Math.random() * 0.16,
+        size: 14 + Math.random() * 5,
+        hue: i % 2 === 0 ? 22 : 220
+      };
+    });
+  }
+
+  /* ---- Resize ---- */
+  function resize(){
+    const r = cv.getBoundingClientRect();
+    W = r.width; H = r.height;
+    cv.width  = Math.floor(W * DPR);
+    cv.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initParticles();
+    initFragments();
+  }
+
+  /* ---- Draw ---- */
+  function draw(){
+    ctx.clearRect(0, 0, W, H);
+    time += 0.012;
+
+    const cx = W * 0.72;
+    const cy = H * 0.5;
+
+    const p2   = Math.max(0, Math.min(1, (progress - 0.26) * 2.7));
+    const p3   = Math.max(0, Math.min(1, (progress - 0.60) * 2.5));
+    const conv = Math.max(0, Math.min(1, (progress - 0.08) / 0.58));
+
+    /* --- ambient glow --- */
+    const glR = 200 + p2 * 180;
+    ctx.beginPath();
+    ctx.arc(cx, cy, glR, 0, TAU);
+    const gg = ctx.createRadialGradient(cx, cy, 0, cx, cy, glR);
+    gg.addColorStop(0,   `rgba(255,94,0,${0.07 + p2 * 0.14})`);
+    gg.addColorStop(0.45,`rgba(255,94,0,${0.02 + p2 * 0.05})`);
+    gg.addColorStop(1,   'transparent');
+    ctx.fillStyle = gg;
+    ctx.fill();
+
+    /* --- concentric rings --- */
+    if (p2 > 0){
+      for (let r = 45; r <= 220; r += 44){
+        const rr = r * (0.25 + p2 * 0.75);
+        ctx.beginPath();
+        ctx.arc(cx, cy, rr, 0, TAU);
+        ctx.strokeStyle = `rgba(255,94,0,${p2 * 0.24 * (1 - r / 260)})`;
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([2, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    /* --- crosshair --- */
+    if (p2 > 0.15){
+      const ca = (p2 - 0.15) / 0.85 * 0.18;
+      ctx.strokeStyle = `rgba(244,244,248,${ca})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(cx - 240, cy); ctx.lineTo(cx + 240, cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, cy - 240); ctx.lineTo(cx, cy + 240); ctx.stroke();
+    }
+
+    /* --- pulsing outer ring (clarity) --- */
+    if (p3 > 0){
+      const pulse = 0.5 + Math.sin(time * 1.8) * 0.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 225 + pulse * 25, 0, TAU);
+      ctx.strokeStyle = `rgba(255,94,0,${p3 * 0.14 * pulse})`;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+
+    /* --- radiating signal lines --- */
+    if (p3 > 0){
+      for (let i = 0; i < 16; i++){
+        const a = (i / 16) * TAU + time * 0.1;
+        const inner = 220;
+        const len   = 70 + p3 * 180;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+        ctx.lineTo(cx + Math.cos(a) * (inner + len), cy + Math.sin(a) * (inner + len));
+        ctx.strokeStyle = `rgba(255,94,0,${p3 * 0.09})`;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+    }
+
+    /* --- particles --- */
+    for (const p of particles){
+      const chaosX = p.sx + Math.sin(time * p.speed + p.offset) * 65;
+      const chaosY = p.sy + Math.cos(time * p.speed * 0.7 + p.offset) * 65;
+      const orbitA = p.angle + time * p.speed * 0.22;
+      const orbitX = cx + Math.cos(orbitA) * p.radius;
+      const orbitY = cy + Math.sin(orbitA) * p.radius;
+      const x = chaosX + (orbitX - chaosX) * conv;
+      const y = chaosY + (orbitY - chaosY) * conv;
+      const sat = p.hue === 22 ? 100 : 90;
+      const lit = p.hue === 22 ? 55  : 60;
+      const alpha = 0.18 + conv * 0.58;
+      const r = p.size * (0.55 + conv * 0.55);
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fillStyle = `hsla(${p.hue},${sat}%,${lit}%,${alpha})`;
+      ctx.fill();
+
+      if (p3 > 0){
+        ctx.beginPath();
+        ctx.arc(x, y, r * 4, 0, TAU);
+        ctx.fillStyle = `hsla(${p.hue},${sat}%,${lit}%,${p3 * 0.06})`;
+        ctx.fill();
+      }
+    }
+
+    /* --- center dot --- */
+    if (p2 > 0.15){
+      const da = Math.min(1, (p2 - 0.15) / 0.35);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5.5, 0, TAU);
+      ctx.fillStyle = `rgba(244,244,248,${da * 0.95})`;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, 0, TAU);
+      ctx.fillStyle = `rgba(255,94,0,${da * 0.16})`;
+      ctx.fill();
+    }
+
+    /* --- text fragments (converge toward center, NEVER vanish) --- */
+    const fPos = [];
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const f of textFrags){
+      const chaosX = f.sx + Math.sin(time * 0.28 + f.offset) * 40;
+      const chaosY = f.sy + Math.cos(time * 0.22 + f.offset) * 40;
+
+      const orbitA = f.convAngle + time * 0.04;
+      const destX  = cx + Math.cos(orbitA) * f.convR;
+      const destY  = cy + Math.sin(orbitA) * f.convR;
+
+      const x = chaosX + (destX - chaosX) * conv;
+      const y = chaosY + (destY - chaosY) * conv;
+      fPos.push({ x, y });
+
+      const alpha = f.baseAlpha + conv * 0.45;
+      const rgb   = f.hue === 22 ? '255,138,61' : '106,140,255';
+      const sz    = f.size * (1 - conv * 0.3);
+
+      ctx.font = `600 ${sz}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = `rgba(${rgb},${alpha})`;
+      ctx.fillText(f.text, x, y);
+    }
+
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+
+    /* --- constellation lines between fragments --- */
+    if (conv > 0.2){
+      const lf = (conv - 0.2) / 0.8;
+      const maxD = 260 - conv * 140;
+      ctx.lineWidth = 0.6;
+      for (let i = 0; i < fPos.length; i++){
+        for (let j = i + 1; j < fPos.length; j++){
+          const d = Math.hypot(fPos[i].x - fPos[j].x, fPos[i].y - fPos[j].y);
+          if (d < maxD){
+            ctx.beginPath();
+            ctx.moveTo(fPos[i].x, fPos[i].y);
+            ctx.lineTo(fPos[j].x, fPos[j].y);
+            ctx.strokeStyle = `rgba(255,94,0,${lf * 0.14 * (1 - d / maxD)})`;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  /* ---- Scroll binding ---- */
+  function updateScroll(){
+    const rect = wrap.getBoundingClientRect();
+    const dist = rect.height - window.innerHeight;
+    progress = Math.max(0, Math.min(1, -rect.top / Math.max(dist, 1)));
+
+    const idx = progress >= 0.66 ? 2 : progress >= 0.33 ? 1 : 0;
+    acts.forEach((a, i) => a.classList.toggle('is-active', i === idx));
+
+    dots.forEach((d, i) => {
+      const thresholds = [0.03, 0.33, 0.66];
+      d.classList.toggle('is-hit', progress >= thresholds[i]);
+    });
+
+    if (fillBar) fillBar.style.height = (progress * 100) + '%';
+    if (foot) foot.classList.toggle('is-shown', progress > 0.80);
+  }
+
+  /* ---- Lifecycle ---- */
+  if ('IntersectionObserver' in window){
+    const io = new IntersectionObserver(([en]) => {
+      if (en.isIntersecting){ cancelAnimationFrame(raf); draw(); }
+      else { cancelAnimationFrame(raf); }
+    }, { threshold: 0.02 });
+    io.observe(wrap);
+  }
+
+  window.addEventListener('scroll', updateScroll, { passive: true });
+  window.addEventListener('resize', resize);
+  resize();
+  updateScroll();
+
+  if (REDUCED){
+    ctx.clearRect(0, 0, W, H);
+    acts.forEach((a, i) => a.classList.toggle('is-active', i === 0));
+    return;
+  }
+
+  draw();
+})();
+

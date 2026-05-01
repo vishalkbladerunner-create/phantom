@@ -35,10 +35,11 @@
   </a>
   <nav class="nav-links" aria-label="Sections">
     <a href="#premise"><span>01</span> Premise</a>
-    <a href="#process"><span>02</span> Process</a>
-    <a href="#services"><span>03</span> Services</a>
-    <a href="#proof"><span>04</span> Proof</a>
-    <a href="#contact"><span>05</span> Contact</a>
+    <a href="#horizon"><span>02</span> Horizon</a>
+    <a href="#process"><span>03</span> Process</a>
+    <a href="#services"><span>04</span> Services</a>
+    <a href="#proof"><span>05</span> Proof</a>
+    <a href="#contact"><span>06</span> Contact</a>
   </nav>
   <a href="#contact" class="nav-cta" data-magnetic>
     <span class="cta-label">Book Signal Session</span>
@@ -54,44 +55,7 @@
 <section class="hero" aria-label="Hero">
   <canvas id="flow-canvas" aria-hidden="true"></canvas>
 
-  <aside class="hero-side hero-side-l" aria-hidden="true">
-    <div class="hs-block">
-      <span class="hs-key">ISSUE</span>
-      <span class="hs-val">№ 014 / VOL. IV</span>
-    </div>
-    <div class="hs-block">
-      <span class="hs-key">FILED</span>
-      <span class="hs-val" id="filedDate">—</span>
-    </div>
-    <div class="hs-block">
-      <span class="hs-key">STATUS</span>
-      <span class="hs-val"><i class="dot live"></i> LIVE / ENCRYPTED</span>
-    </div>
-    <div class="hs-rule"></div>
-    <div class="hs-vert">PHANTOM · POST · AGENCY · MMXXVI</div>
-  </aside>
 
-  <aside class="hero-side hero-side-r" aria-hidden="true">
-    <div class="hs-coords">
-      <span>40.7128° N</span>
-      <span>74.0060° W</span>
-    </div>
-    <div class="hs-rule"></div>
-    <div class="hs-bars" id="signalBars">
-      <span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span><span></span>
-    </div>
-    <div class="hs-block end">
-      <span class="hs-key">SIGNAL</span>
-      <span class="hs-val">↗ +194%</span>
-    </div>
-    <div class="hs-block end">
-      <span class="hs-key">NOISE</span>
-      <span class="hs-val">↘ −82%</span>
-    </div>
-  </aside>
 
   <div class="hero-inner">
     <div class="hero-eyebrow">
@@ -224,6 +188,74 @@
         </svg>
       </div>
     </article>
+  </div>
+</section>
+
+<!-- ============ HORIZON EFFECT ============ -->
+<section class="horizon-wrap" id="horizon">
+  <div class="horizon-sticky">
+    <canvas id="horizon-canvas" aria-hidden="true"></canvas>
+    <div class="horizon-fade" aria-hidden="true"></div>
+
+    <div class="horizon-ui">
+      <div class="horizon-label">
+        <span class="head-num">— THE HORIZON EFFECT</span>
+        <span class="head-rule"></span>
+        <span class="head-tag">FINDING YOUR VOICE</span>
+      </div>
+
+      <div class="horizon-progress" aria-hidden="true">
+        <div class="hp-track"></div>
+        <div class="hp-fill" id="horizonFill"></div>
+        <span class="hp-dot" data-phase="1"></span>
+        <span class="hp-dot" data-phase="2"></span>
+        <span class="hp-dot" data-phase="3"></span>
+      </div>
+
+      <div class="horizon-acts">
+        <div class="horizon-act is-active" data-act="1">
+          <div class="ha-meta">
+            <span class="ha-num">01</span>
+            <span class="ha-phase">SCATTERED</span>
+          </div>
+          <h3 class="ha-title">The Small <em>Sphere</em></h3>
+          <p class="ha-body">
+            Most founders start on a small sphere. Their voice feels generic, noisy,
+            inauthentic. The horizon is close. Uncertainty is high.
+            Every post feels like <em>guessing</em>.
+          </p>
+        </div>
+        <div class="horizon-act" data-act="2">
+          <div class="ha-meta">
+            <span class="ha-num">02</span>
+            <span class="ha-phase">CONVERGING</span>
+          </div>
+          <h3 class="ha-title">The Sphere <em>Expands</em></h3>
+          <p class="ha-body">
+            By deeply understanding your own thinking — your unique observations,
+            core principles, what genuinely excites you — the sphere grows.
+            The horizon <em>recedes</em>. The curve flattens.
+          </p>
+        </div>
+        <div class="horizon-act" data-act="3">
+          <div class="ha-meta">
+            <span class="ha-num">03</span>
+            <span class="ha-phase">CLARITY</span>
+          </div>
+          <h3 class="ha-title">The Curve <em>Flips</em></h3>
+          <p class="ha-body">
+            Your voice is no longer a single point on a small sphere. It becomes
+            a wide, stable platform. You can scale across formats, channels,
+            and years — without losing <em>yourself</em>.
+          </p>
+        </div>
+      </div>
+
+      <div class="horizon-foot">
+        <span class="hf-eq">Distance = Time.</span>
+        <span class="hf-sub">The more rigorously you do the inner gap analysis, the faster you find your real voice.</span>
+      </div>
+    </div>
   </div>
 </section>
 
