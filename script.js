@@ -629,7 +629,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 (function recordingTool() {
   let isScrolling = false;
   let currentPos = window.scrollY;
-  const speed = 1.95; // Adjust for speed. 0.6-0.8 is great for "cinematic" feels.
+  const speed = 3.9; // Adjust for speed. 0.6-0.8 is great for "cinematic" feels.
 
   function step() {
     if (!isScrolling) return;
