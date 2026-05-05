@@ -479,7 +479,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         offset: Math.random() * TAU,
         rot: (Math.random() - 0.5) * 45,
         baseOp: 0.15 + Math.random() * 0.45,
-        baseSize: 10 + Math.random() * 13,
+        baseSize: (W < 600 ? 13 : 10) + Math.random() * (W < 600 ? 16 : 13),
         x: 0, y: 0, vx: 0, vy: 0,
         opacity: 0, scale: 1, rotation: 0,
         idx: i,
@@ -505,7 +505,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         y: startY + row * 30,
         opacity: 0,
         scale: 0.8,
-        size: 15
+        size: W < 600 ? 18 : 15
       });
     });
   }
@@ -1027,6 +1027,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     drawPulseRings(p5, cx, cy);
     drawNetwork(p5, cx, cy);
     drawFinalLines(p6, cx, cy);
+    updateFallbackUI(sp);
 
     raf = requestAnimationFrame(draw);
   }
@@ -1098,6 +1099,18 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.addEventListener('scroll', updateScroll, { passive: true });
   }
 
+  function updateFallbackUI(sp){
+    if (typeof gsap !== 'undefined') return;
+    const ranges = [0.02, 0.14, 0.32, 0.50, 0.70, 0.98];
+    overlays.forEach((el, i) => {
+      const start = ranges[i] || 1;
+      const end = (ranges[i+1] || 1) - 0.02;
+      el.classList.toggle('is-active', sp >= start && sp < end);
+    });
+    if (scrollIndicator) scrollIndicator.classList.toggle('is-hidden', sp > 0.03);
+    if (heroContent) heroContent.classList.toggle('is-revealed', sp > 0.94);
+  }
+
   // Lifecycle
   if ('IntersectionObserver' in window){
     const io = new IntersectionObserver(([en]) => {
@@ -1108,8 +1121,18 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   window.addEventListener('resize', resize);
-  resize();
-  draw();
+
+  // Wait for fonts then start
+  function start(){
+    resize();
+    draw();
+  }
+  if (document.fonts && document.fonts.ready){
+    document.fonts.ready.then(start);
+    setTimeout(start, 1200);
+  } else {
+    start();
+  }
 })();
 
 /* ==============================================================
