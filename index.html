@@ -414,28 +414,66 @@
             <li>Channel matrix &amp; cadence model</li>
           </ul>
         </div>
-        <div class="ps-art">
-          <svg viewBox="0 0 360 360" fill="none" aria-hidden="true">
+        <div class="ps-art ps-art-wave">
+          <svg class="wave-svg" viewBox="0 0 360 300" fill="none" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
             <defs>
-              <linearGradient id="g2" x1="0" x2="1" y1="0" y2="1">
+              <linearGradient id="g2" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0%" stop-color="#FF5E00"/>
                 <stop offset="100%" stop-color="#1A6AFF"/>
               </linearGradient>
+              <linearGradient id="g2b" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stop-color="#FF5E00" stop-opacity=".6"/>
+                <stop offset="100%" stop-color="#1A6AFF" stop-opacity=".6"/>
+              </linearGradient>
+              <linearGradient id="g2c" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stop-color="#FF5E00" stop-opacity=".35"/>
+                <stop offset="100%" stop-color="#1A6AFF" stop-opacity=".35"/>
+              </linearGradient>
             </defs>
-            <g stroke="#9A9AB5" stroke-width=".5" opacity=".25">
-              <path d="M30 60h300M30 100h300M30 140h300M30 180h300M30 220h300M30 260h300M30 300h300"/>
+            <!-- Grid lines -->
+            <g stroke="#9A9AB5" stroke-width=".5" opacity=".2">
+              <path d="M30 60h300M30 100h300M30 140h300M30 180h300M30 220h300M30 260h300"/>
             </g>
-            <path d="M30 180 Q 90 60 150 180 T 270 180 T 390 180" stroke="url(#g2)" stroke-width="2" fill="none"/>
-            <path d="M30 200 Q 90 280 150 200 T 270 200 T 390 200" stroke="url(#g2)" stroke-width="1.4" fill="none" opacity=".7"/>
-            <path d="M30 160 Q 90 100 150 160 T 270 160 T 390 160" stroke="url(#g2)" stroke-width="1.2" fill="none" opacity=".5"/>
-            <g fill="#FF5E00">
-              <circle cx="60" cy="172" r="2.5"/>
-              <circle cx="150" cy="180" r="2.5"/>
-              <circle cx="240" cy="188" r="2.5"/>
+            <!--
+              Seamless sine-wave tile: one full period = 240px wide.
+              Cubic Bezier approximates sine over 240px: C 33.3,±60  66.6,±60  120,0  C 153.3,±60  186.6,±60  240,0
+              The path starts at the baseline middle, curves up to peak, down through
+              middle to trough, and back to middle with identical tangent — so copies
+              at 240px intervals tile perfectly with zero phase mismatch.
+            -->
+            <g class="wave-track">
+              <!--
+                Strips spaced by the FULL wave period (240px), not half.
+                Each strip is one 240px sine period. They tile edge-to-edge
+                with identical phase — no overlap conflicts, no cut-off.
+                A leading strip at x=-240 covers the left edge continuously.
+              -->
+              <g class="wave-strip" transform="translate(-240,0)">
+                <path d="M0 160 C 33.3 110, 66.6 110, 120 160 C 153.3 210, 186.6 210, 240 160" stroke="url(#g2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M0 175 C 33.3 145, 66.6 145, 120 175 C 153.3 205, 186.6 205, 240 175" stroke="url(#g2b)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+                <path d="M0 145 C 33.3 125, 66.6 125, 120 145 C 153.3 165, 186.6 165, 240 145" stroke="url(#g2c)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              </g>
+              <g class="wave-strip" transform="translate(0,0)">
+                <path d="M0 160 C 33.3 110, 66.6 110, 120 160 C 153.3 210, 186.6 210, 240 160" stroke="url(#g2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M0 175 C 33.3 145, 66.6 145, 120 175 C 153.3 205, 186.6 205, 240 175" stroke="url(#g2b)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+                <path d="M0 145 C 33.3 125, 66.6 125, 120 145 C 153.3 165, 186.6 165, 240 145" stroke="url(#g2c)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              </g>
+              <g class="wave-strip" transform="translate(240,0)">
+                <path d="M0 160 C 33.3 110, 66.6 110, 120 160 C 153.3 210, 186.6 210, 240 160" stroke="url(#g2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M0 175 C 33.3 145, 66.6 145, 120 175 C 153.3 205, 186.6 205, 240 175" stroke="url(#g2b)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+                <path d="M0 145 C 33.3 125, 66.6 125, 120 145 C 153.3 165, 186.6 165, 240 145" stroke="url(#g2c)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              </g>
+              <g class="wave-strip" transform="translate(480,0)">
+                <path d="M0 160 C 33.3 110, 66.6 110, 120 160 C 153.3 210, 186.6 210, 240 160" stroke="url(#g2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M0 175 C 33.3 145, 66.6 145, 120 175 C 153.3 205, 186.6 205, 240 175" stroke="url(#g2b)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+                <path d="M0 145 C 33.3 125, 66.6 125, 120 145 C 153.3 165, 186.6 165, 240 145" stroke="url(#g2c)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              </g>
             </g>
-            <text x="30" y="340" font-family="JetBrains Mono" font-size="9" fill="#9A9AB5" letter-spacing="2">VOICE.WAVEFORM</text>
-            <text x="330" y="340" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#9A9AB5" letter-spacing="2">42.8 Hz</text>
           </svg>
+          <div class="wave-labels">
+            <span>VOICE.WAVEFORM</span>
+            <span>42.8 Hz</span>
+          </div>
         </div>
       </article>
 
@@ -489,7 +527,7 @@
         </div>
       </article>
 
-      <article class="pstep" data-step="4">
+      <article class="pstep" data-step="4" id="phase4Graph">
         <div class="ps-left">
           <div class="ps-num">04</div>
           <div class="ps-phase">PHASE IV</div>
@@ -511,6 +549,9 @@
                 <stop offset="0%" stop-color="#FF5E00" stop-opacity=".4"/>
                 <stop offset="100%" stop-color="#FF5E00" stop-opacity="0"/>
               </linearGradient>
+              <clipPath id="phase4Reveal">
+                <rect class="phase4-clip-rect" x="0" y="0" width="0" height="360"/>
+              </clipPath>
             </defs>
             <g stroke="#9A9AB5" stroke-width=".4" opacity=".3">
               <line x1="40" y1="60" x2="320" y2="60"/>
@@ -519,14 +560,16 @@
               <line x1="40" y1="240" x2="320" y2="240"/>
               <line x1="40" y1="300" x2="320" y2="300"/>
             </g>
-            <path d="M40 280 L 80 260 L 120 240 L 160 200 L 200 170 L 240 130 L 280 100 L 320 70 L 320 300 L 40 300 Z" fill="url(#g4)"/>
-            <path d="M40 280 L 80 260 L 120 240 L 160 200 L 200 170 L 240 130 L 280 100 L 320 70" stroke="#FF5E00" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <g fill="#FF5E00">
-              <circle cx="40"  cy="280" r="3"/>
-              <circle cx="120" cy="240" r="3"/>
-              <circle cx="200" cy="170" r="3"/>
-              <circle cx="280" cy="100" r="3"/>
-              <circle cx="320" cy="70"  r="3.5"/>
+            <g clip-path="url(#phase4Reveal)">
+              <path class="phase4-fill" d="M40 280 L 80 260 L 120 240 L 160 200 L 200 170 L 240 130 L 280 100 L 320 70 L 320 300 L 40 300 Z" fill="url(#g4)"/>
+              <path class="phase4-line" d="M40 280 L 80 260 L 120 240 L 160 200 L 200 170 L 240 130 L 280 100 L 320 70" stroke="#FF5E00" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <g fill="#FF5E00" class="phase4-dots">
+                <circle cx="40"  cy="280" r="3"/>
+                <circle cx="120" cy="240" r="3"/>
+                <circle cx="200" cy="170" r="3"/>
+                <circle cx="280" cy="100" r="3"/>
+                <circle cx="320" cy="70"  r="3.5"/>
+              </g>
             </g>
             <text x="40" y="330" font-family="JetBrains Mono" font-size="9" fill="#9A9AB5" letter-spacing="2">INBOUND / QTR</text>
             <text x="320" y="330" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#FF5E00" letter-spacing="2">↗ +340%</text>
@@ -586,14 +629,18 @@
       <div class="bc-cta"><span>From $14k / mo</span><i>→</i></div>
     </article>
 
-    <article class="bento-card">
+    <article class="bento-card" id="bentoVoice">
       <div class="bc-head"><span class="bc-num">02</span></div>
       <h3 class="bc-title">Voice <em>Fingerprint</em></h3>
       <p class="bc-body">A 60-page operating manual for your public voice. Once. Forever.</p>
       <div class="bc-art small">
-        <svg viewBox="0 0 200 80" fill="none" preserveAspectRatio="none">
-          <path d="M5 40 Q 25 10 45 40 T 85 40 T 125 40 T 165 40 T 205 40" stroke="#FF5E00" stroke-width="1.6" fill="none"/>
-          <path d="M5 50 Q 25 70 45 50 T 85 50 T 125 50 T 165 50 T 205 50" stroke="#1A6AFF" stroke-width="1.2" fill="none" opacity=".7"/>
+        <svg class="voice-wave-svg" viewBox="0 0 200 80" fill="none" preserveAspectRatio="none">
+          <g class="voice-wave-track">
+            <!-- Orange = sine: baseline 45, amplitude 10, starts going up -->
+            <path d="M-80 45C-70 45,-65 35,-60 35C-55 35,-50 45,-40 45C-30 45,-25 55,-20 55C-15 55,-10 45,0 45C10 45,15 35,20 35C25 35,30 45,40 45C50 45,55 55,60 55C65 55,70 45,80 45C90 45,95 35,100 35C105 35,110 45,120 45C130 45,135 55,140 55C145 55,150 45,160 45C170 45,175 35,180 35C185 35,190 45,200 45C210 45,215 55,220 55C225 55,230 45,240 45C250 45,255 35,260 35C265 35,270 45,280 45C290 45,295 55,300 55C305 55,310 45,320 45" stroke="#FF5E00" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+            <!-- Blue = cosine: baseline 45, amplitude 10, 90° offset, starts at peak -->
+            <path d="M-80 35C-70 35,-65 45,-60 45C-55 45,-50 55,-40 55C-30 55,-25 45,-20 45C-15 45,-10 35,0 35C10 35,15 45,20 45C25 45,30 55,40 55C50 55,55 45,60 45C65 45,70 35,80 35C90 35,95 45,100 45C105 45,110 55,120 55C130 55,135 45,140 45C145 45,150 35,160 35C170 35,175 45,180 45C185 45,190 55,200 55C210 55,215 45,220 45C225 45,230 35,240 35C250 35,255 45,260 45C265 45,270 55,280 55C290 55,295 45,300 45C305 45,310 35,320 35" stroke="#1A6AFF" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/>
+          </g>
         </svg>
       </div>
     </article>
@@ -675,7 +722,7 @@
   </div>
 
   <div class="proof-grid">
-    <article class="proof-chart">
+    <article class="proof-chart" id="proofChart">
       <div class="pc-head">
         <span class="pc-eye">PORTFOLIO MEDIAN · INBOUND VOLUME</span>
         <span class="pc-delta">↗ +340% / 12 mo</span>
@@ -686,6 +733,10 @@
             <stop offset="0%" stop-color="#FF5E00" stop-opacity=".55"/>
             <stop offset="100%" stop-color="#FF5E00" stop-opacity="0"/>
           </linearGradient>
+          <!-- Clip-path that reveals the graph from left to right -->
+          <clipPath id="chartReveal">
+            <rect class="chart-clip-rect" x="0" y="0" width="0" height="280"/>
+          </clipPath>
         </defs>
         <g stroke="rgba(154,154,181,.18)" stroke-width=".6">
           <line x1="0"  y1="40"  x2="720" y2="40"/>
@@ -693,15 +744,18 @@
           <line x1="0"  y1="160" x2="720" y2="160"/>
           <line x1="0"  y1="220" x2="720" y2="220"/>
         </g>
-        <path d="M0,240 L60,232 L120,224 L180,210 L240,196 L300,170 L360,154 L420,128 L480,108 L540,80 L600,58 L660,42 L720,26 L720,280 L0,280 Z" fill="url(#pcg)"/>
-        <path d="M0,240 L60,232 L120,224 L180,210 L240,196 L300,170 L360,154 L420,128 L480,108 L540,80 L600,58 L660,42 L720,26"
-              stroke="#FF5E00" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <g fill="#FF5E00">
-          <circle cx="0"   cy="240" r="3"/>
-          <circle cx="180" cy="210" r="3"/>
-          <circle cx="360" cy="154" r="3"/>
-          <circle cx="540" cy="80"  r="3"/>
-          <circle cx="720" cy="26"  r="4"/>
+        <!-- Graph group: fill + line + dots, all clipped -->
+        <g clip-path="url(#chartReveal)">
+          <path class="chart-fill" d="M0,240 L60,232 L120,224 L180,210 L240,196 L300,170 L360,154 L420,128 L480,108 L540,80 L600,58 L660,42 L720,26 L720,280 L0,280 Z" fill="url(#pcg)"/>
+          <path class="chart-line" d="M0,240 L60,232 L120,224 L180,210 L240,196 L300,170 L360,154 L420,128 L480,108 L540,80 L600,58 L660,42 L720,26"
+                stroke="#FF5E00" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <g fill="#FF5E00" class="chart-dots">
+            <circle cx="0"   cy="240" r="3"/>
+            <circle cx="180" cy="210" r="3"/>
+            <circle cx="360" cy="154" r="3"/>
+            <circle cx="540" cy="80"  r="3"/>
+            <circle cx="720" cy="26"  r="4"/>
+          </g>
         </g>
       </svg>
       <div class="pc-axis">
@@ -715,7 +769,7 @@
       <div class="psv-foot">across 11 active engagements</div>
     </article>
     <article class="proof-stat">
-      <div class="psv-num"><span data-count="6">0</span><i>hrs</i></div>
+      <div class="psv-num"><span data-count="6" data-count-from="24">24</span><i>hrs</i></div>
       <div class="psv-label">founder time / month</div>
       <div class="psv-foot">post-onboarding average</div>
     </article>

@@ -930,6 +930,107 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
 .ps-art-radar::before,
 .ps-art-radar::after{ display: none; }
 
+/* ============ WAVE CARD — Phase II (Voice Architecture) ============ */
+.ps-art-wave{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 24px 18px;
+}
+.ps-art-wave::before{
+  content:''; position: absolute; top: 12px; left: 12px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--orange);
+  box-shadow: 0 0 10px var(--orange);
+}
+.ps-art-wave::after{ display: none; }
+
+.wave-svg{
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Seamless infinite wave animation — mathematically perfect tile loop */
+.wave-track{
+  will-change: transform;
+  animation: waveScroll 5s linear infinite;
+}
+
+@keyframes waveScroll{
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-240px); }
+}
+
+.wave-labels{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+.wave-labels span{
+  font: 500 9px/1 var(--mono);
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+.wave-labels span:last-child{
+  color: var(--orange);
+}
+
+/* Voice Fingerprint card — seamless wave animation */
+.voice-wave-track{
+  will-change: transform;
+  animation: voiceWaveScroll 3s linear infinite;
+}
+
+@keyframes voiceWaveScroll{
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-80px); }
+}
+
+/* ---------- Phase IV Compounding Loop graph scroll reveal ---------- */
+.phase4-clip-rect{
+  transition: width 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#phase4Graph.is-visible .phase4-clip-rect{
+  width: 360px;
+}
+
+.phase4-line{
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#phase4Graph.is-visible .phase4-line{
+  stroke-dashoffset: 0;
+}
+
+.phase4-dots circle{
+  opacity: 0;
+  transform: scale(0);
+  transform-origin: center;
+  transition: opacity .4s var(--ease-out), transform .4s var(--ease-out);
+}
+#phase4Graph.is-visible .phase4-dots circle:nth-child(1){ transition-delay: .15s; }
+#phase4Graph.is-visible .phase4-dots circle:nth-child(2){ transition-delay: .50s; }
+#phase4Graph.is-visible .phase4-dots circle:nth-child(3){ transition-delay: .90s; }
+#phase4Graph.is-visible .phase4-dots circle:nth-child(4){ transition-delay: 1.30s; }
+#phase4Graph.is-visible .phase4-dots circle:nth-child(5){ transition-delay: 1.75s; }
+#phase4Graph.is-visible .phase4-dots circle{
+  opacity: 1;
+  transform: scale(1);
+}
+
+.phase4-fill{
+  opacity: 0;
+  transition: opacity .6s var(--ease-out) .3s;
+}
+#phase4Graph.is-visible .phase4-fill{
+  opacity: 1;
+}
+
 /* ============ SERVICES (BENTO) ============ */
 .bento{
   display: grid;
@@ -1070,6 +1171,48 @@ main{ padding-top: var(--nav-h); position: relative; z-index: 1; }
 }
 .pc-delta{ color: var(--orange); }
 .pc-svg{ width: 100%; flex: 1; max-height: 280px; }
+
+/* ---------- Chart scroll-reveal animation ---------- */
+.chart-clip-rect{
+  transition: width 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#proofChart.is-visible .chart-clip-rect{
+  width: 720px;
+}
+
+.chart-line{
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#proofChart.is-visible .chart-line{
+  stroke-dashoffset: 0;
+}
+
+.chart-dots circle{
+  opacity: 0;
+  transform: scale(0);
+  transform-origin: center;
+  transition: opacity .4s var(--ease-out), transform .4s var(--ease-out);
+}
+#proofChart.is-visible .chart-dots circle:nth-child(1){ transition-delay: .10s; }
+#proofChart.is-visible .chart-dots circle:nth-child(2){ transition-delay: .45s; }
+#proofChart.is-visible .chart-dots circle:nth-child(3){ transition-delay: .85s; }
+#proofChart.is-visible .chart-dots circle:nth-child(4){ transition-delay: 1.25s; }
+#proofChart.is-visible .chart-dots circle:nth-child(5){ transition-delay: 1.70s; }
+#proofChart.is-visible .chart-dots circle{
+  opacity: 1;
+  transform: scale(1);
+}
+
+.chart-fill{
+  opacity: 0;
+  transition: opacity .6s var(--ease-out) .3s;
+}
+#proofChart.is-visible .chart-fill{
+  opacity: 1;
+}
+
 .pc-axis{
   display: flex; justify-content: space-between;
   font: 500 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--text-dim);

@@ -83,10 +83,18 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease = t => 1 - Math.pow(1 - t, 3);
   const animate = (el) => {
     const target = parseFloat(el.getAttribute('data-count')) || 0;
+    const fromAttr = el.getAttribute('data-count-from');
+    const fromVal = fromAttr !== null ? parseFloat(fromAttr) : 0;
+    const isCountDown = fromAttr !== null;
     const dur = 1700; const start = performance.now();
     const tick = (t) => {
       const p = Math.min(1, (t - start) / dur);
-      el.textContent = Math.round(ease(p) * target);
+      const eased = ease(p);
+      if (isCountDown) {
+        el.textContent = Math.round(fromVal - eased * (fromVal - target));
+      } else {
+        el.textContent = Math.round(eased * target);
+      }
       if (p < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -181,6 +189,38 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   });
   // Run once on load after entrance animation
   setTimeout(() => document.querySelectorAll('.scramble').forEach(run), 1700);
+})();
+
+/* ---------- Proof chart scroll reveal ---------- */
+(function chartReveal(){
+  const chart = document.getElementById('proofChart');
+  if (!chart || !('IntersectionObserver' in window)) {
+    if (chart) chart.classList.add('is-visible');
+    return;
+  }
+  const io = new IntersectionObserver(([en]) => {
+    if (en.isIntersecting) {
+      chart.classList.add('is-visible');
+      io.disconnect();
+    }
+  }, { threshold: 0.25 });
+  io.observe(chart);
+})();
+
+/* ---------- Phase IV Compounding Loop graph scroll reveal ---------- */
+(function phase4Reveal(){
+  const card = document.getElementById('phase4Graph');
+  if (!card || !('IntersectionObserver' in window)) {
+    if (card) card.classList.add('is-visible');
+    return;
+  }
+  const io = new IntersectionObserver(([en]) => {
+    if (en.isIntersecting) {
+      card.classList.add('is-visible');
+      io.disconnect();
+    }
+  }, { threshold: 0.3 });
+  io.observe(card);
 })();
 
 /* ---------- Contact form ---------- */
