@@ -58,13 +58,17 @@
 <main id="top">
 
 <!-- ============ HERO / TYPOGRAPHIC STORM ============ -->
-<section class="hero-wrap" aria-label="Hero">
+<section class="hero-wrap" aria-label="Hero — The Typographic Storm">
   <div class="hero-sticky">
+    <div class="hero-logo-wrap">
+      <img class="hero-logo" src="assets/logo.png" alt="Phantom Post" width="200" height="55" />
+    </div>
+    <canvas id="flow-canvas" aria-hidden="true"></canvas>
     <canvas id="storm-canvas" aria-hidden="true"></canvas>
 
-    <!-- Phase overlays -->
+    <!-- Phase overlay lines (one per narrative beat) -->
     <div class="storm-overlay" data-phase="0">
-      <span class="so-line">Every founder is sitting on a signal.</span>
+      <span class="so-line">Most founder voices are accidental.</span>
     </div>
     <div class="storm-overlay" data-phase="1">
       <span class="so-line">We separate signal from noise.</span>
@@ -75,10 +79,14 @@
     <div class="storm-overlay" data-phase="3">
       <span class="so-line">The machine ships. You think.</span>
     </div>
-    <div class="storm-overlay" data-phase="4">
-      <span class="so-line">Authority is earned. Then it earns for you.</span>
+    <div class="storm-overlay storm-overlay-final" data-phase="4">
+      <span class="so-line so-final">
+        <span class="sf-line">"Phantom Post. The</span>
+        <span class="sf-line">invisible machine."</span>
+      </span>
     </div>
 
+    <!-- Hero content revealed at end of scroll -->
     <div class="hero-inner" id="heroContent">
       <div class="hero-eyebrow">
         <span class="eb-tag"><i class="dot pulse"></i> A REPUTATION STUDIO</span>
@@ -131,6 +139,7 @@
     </div>
   </div>
 </section>
+
 
 <!-- ============ MARQUEE TAGS ============ -->
 <section class="marquee" aria-hidden="true">
