@@ -307,7 +307,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const cv = document.getElementById('flow-canvas');
   if (!cv || REDUCED) return;
   const ctx = cv.getContext('2d', { alpha: true });
-  let W = 0, H = 0, DPR = Math.min(2, window.devicePixelRatio || 1);
+  let W = 0, H = 0, DPR = Math.min(1.5, window.devicePixelRatio || 1);
   let particles = [];
   let mouse = { x: -9999, y: -9999, active: false };
   const TAU = Math.PI * 2;
@@ -348,7 +348,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     initParticles();
   };
 
-  const COUNT = () => Math.floor(Math.min(280, (W * H) / 6500));
+  const COUNT = () => Math.floor(Math.min(200, (W * H) / 10000));
 
   const initParticles = () => {
     const n = COUNT();
@@ -511,18 +511,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     flowParticles = [];
 
     let signalCount = 0;
-    const WORD_COUNT = 210; 
+    const WORD_COUNT = () => Math.floor(Math.min(380, (W * H) / 4200)); 
     const MAX_SIGNAL = 24; // Limit assembled grid to 3x8 block
 
-    // Init Words
-    for(let i=0; i<WORD_COUNT; i++) {
-      // 30% orange (signal) words, 70% white (noise) words
+    // Init Words — full canvas coverage, no padding, no protect zone
+    for(let i=0; i<WORD_COUNT(); i++) {
       const isSignal = Math.random() < 0.3;
-      
-      let col = 0;
-      let row = 0;
-      let keepsSlot = false;
-      
+      let col = 0, row = 0, keepsSlot = false;
       if (isSignal && signalCount < MAX_SIGNAL) {
         col = signalCount % 3;
         row = Math.floor(signalCount / 3);
@@ -530,26 +525,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         signalCount++;
       }
 
-      // Small edge padding so words aren't cut off at canvas boundaries
-      const EDGE_PAD = 30;
-      
-      let startX = EDGE_PAD + Math.random() * (W - EDGE_PAD * 2);
-      let startY = EDGE_PAD + Math.random() * (H - EDGE_PAD * 2);
-
-      // Protect lower-left quadrant where hero-claim headline sits
-      // The headline is at left: gutter, bottom: 120px, max-width: 640px
-      // We avoid spawning words in the bottom 35% and left 40% of the viewport
-      const protectZone = 0.35; // 35% of words get protected placement
-      if (i < WORD_COUNT * protectZone) {
-        // These words can spawn anywhere EXCEPT the protected zone
-        const paddingX = W * 0.42; // left 42%
-        const paddingY = H * 0.38; // bottom 38%
-        if (startX < paddingX && startY > H - paddingY) {
-          // Re-roll: push to upper-right area
-          startX = Math.max(EDGE_PAD, paddingX) + Math.random() * (W - Math.max(EDGE_PAD, paddingX) - EDGE_PAD);
-          startY = EDGE_PAD + Math.random() * (Math.min(H - paddingY, H - EDGE_PAD) - EDGE_PAD);
-        }
-      }
+      const startX = Math.random() * W;
+      const startY = Math.random() * H;
 
       words.push({
         text: isSignal ? SIGNAL[Math.floor(Math.random() * SIGNAL.length)] : NOISE[Math.floor(Math.random() * NOISE.length)],
@@ -564,6 +541,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         vy: 0,
         baseSize: isSignal ? 16 + Math.random()*5 : 14 + Math.random()*4,
         alpha: 0,
+        dissolved: false,
         orbA: Math.random() * TAU,
         orbR: 150 + Math.random() * 250,
         col: col,
@@ -572,18 +550,16 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       });
     }
 
-    // Init Grid Titles (spawn with edge padding)
-    const EDGE_PAD = 30;
-    for(let i=0; i<28; i++) {
+    // Init Grid Titles
+    for(let i=0; i<16; i++) {
       gridTitles.push({
         text: TITLES[Math.floor(Math.random() * TITLES.length)],
-        x: EDGE_PAD + Math.random() * (W - EDGE_PAD * 2),
-        y: EDGE_PAD + Math.random() * (H - EDGE_PAD * 2),
+        x: Math.random() * W,
+        y: Math.random() * H,
         alpha: 0,
         connections: []
       });
     }
-    // Connect nearest grid titles
     for(let i=0; i<gridTitles.length; i++) {
       for(let j=i+1; j<gridTitles.length; j++) {
         const dx = gridTitles[i].x - gridTitles[j].x;
@@ -594,8 +570,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       }
     }
 
-    // Init Flow Particles (for the background randomized visuals)
-    for(let i=0; i<70; i++) {
+    // Init Flow Particles
+    for(let i=0; i<35; i++) {
       flowParticles.push({
         x: Math.random() * W,
         y: Math.random() * H,
@@ -627,120 +603,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function easeInOutCubic(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
 
-  const PHASES = {
-    chaos:    { start: 0.00, end: 0.22, peak: 0.10 },
-    filter:   { start: 0.12, end: 0.42, peak: 0.27 },
-    assemble: { start: 0.32, end: 0.62, peak: 0.47 },
-    output:   { start: 0.52, end: 0.92, peak: 0.72 },
-    fade:     { start: 0.85, end: 1.00, peak: 0.93 }
-  };
-
-  function phaseWeight(p, phase) {
-    const { start, end, peak } = PHASES[phase];
-    if (p < start || p > end) return 0;
-    if (p < peak) return (p - start) / (peak - start);
-    return 1 - (p - peak) / (end - peak);
-  }
-
-  function getChaosTarget(w, time) {
-    return {
-      x: w.x,
-      y: w.y,
-      z: w.z,
-      alpha: 0.6 + 0.4 * Math.sin(time * 2 + w.idx),
-      scale: 1,
-      shadow: 0
-    };
-  }
-
-  function getFilterTarget(w, wFilter, cx, cy, pFilterLocal) {
-    if (!w.isSignal) {
-      const dx = w.x - cx;
-      const dy = w.y - cy;
-      const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
-      return {
-        x: w.x + (dx / dist) * 100 * wFilter,
-        y: w.y + (dy / dist) * 100 * wFilter,
-        z: w.z,
-        alpha: Math.max(0, 1 - wFilter * 1.5),
-        scale: 1,
-        shadow: 0
-      };
-    } else {
-      if (wFilter > 0) {
-        const orbitSpeed = 0.015 * (1 - pFilterLocal);
-        w.orbA += Math.max(0, orbitSpeed);
-      }
-      const targetX = cx + Math.cos(w.orbA) * w.orbR;
-      const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
-      return {
-        x: targetX,
-        y: targetY,
-        z: 100,
-        alpha: Math.min(1, 0.4 + wFilter),
-        scale: 1,
-        shadow: 12
-      };
-    }
-  }
-
-  function getAssembleTarget(w, wAssemble, startX, startY, colW, rowH) {
-    if (!w.isSignal || !w.keepsSlot) {
-      return {
-        x: w.x,
-        y: w.y - 60 * wAssemble,
-        z: w.z,
-        alpha: Math.max(0, 1 - wAssemble * 1.2),
-        scale: 1,
-        shadow: 0
-      };
-    } else {
-      const targetX = startX + w.col * colW;
-      const targetY = startY + w.row * rowH;
-      return {
-        x: targetX,
-        y: targetY,
-        z: 100 * (1 - wAssemble),
-        alpha: 1,
-        scale: 1,
-        shadow: 12
-      };
-    }
-  }
-
-  function getOutputTarget(w, wOutput, startX, startY, colW, rowH) {
-    if (!w.isSignal || !w.keepsSlot) {
-      return {
-        x: w.x,
-        y: w.y,
-        z: w.z,
-        alpha: 0,
-        scale: 1,
-        shadow: 0
-      };
-    }
-    const targetX = startX + w.col * colW;
-    const targetY = startY + w.row * rowH;
-    return {
-      x: targetX,
-      y: targetY - wOutput * 420,
-      z: 0,
-      alpha: Math.max(0, 1 - wOutput * 1.45),
-      scale: 1,
-      shadow: 12
-    };
-  }
-
-  function getFadeTarget(w) {
-    return {
-      x: w.x,
-      y: w.y,
-      z: w.z,
-      alpha: 0,
-      scale: 1,
-      shadow: 0
-    };
-  }
+  // Linear phases (monotonic — no fade-back-in)
+  const phaseChaos    = (p) => Math.max(0, Math.min(1, p / 0.15));
+  const phaseFilter   = (p) => Math.max(0, Math.min(1, (p - 0.15) / 0.20));
+  const phaseAssemble = (p) => Math.max(0, Math.min(1, (p - 0.35) / 0.20));
+  const phaseOutput   = (p) => Math.max(0, Math.min(1, (p - 0.55) / 0.20));
+  const phaseNetwork  = (p) => Math.max(0, Math.min(1, (p - 0.75) / 0.20));
+  const phaseFade     = (p) => Math.max(0, Math.min(1, (p - 0.95) / 0.05));
 
   function draw(now) {
     isDrawing = true;
@@ -760,18 +629,10 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cx = W / 2;
     const cy = H / 2;
 
-    // Weighted phase overlap system
-    const wChaos    = phaseWeight(p, 'chaos');
-    const wFilter   = phaseWeight(p, 'filter');
-    const wAssemble = phaseWeight(p, 'assemble');
-    const wOutput   = phaseWeight(p, 'output');
-    const wFade     = phaseWeight(p, 'fade');
-
     // Legacy normalized progress for overlay sections that need them
     const pOutput  = Math.max(0, Math.min(1, (p - 0.55) / 0.20));
     const pNetwork = Math.max(0, Math.min(1, (p - 0.75) / 0.20));
     const pFade    = Math.max(0, Math.min(1, (p - 0.95) / 0.05));
-    const pFilterLocal = Math.max(0, Math.min(1, (p - 0.12) / 0.30));
 
     // Vignette
     const outer = Math.max(W, H) * 0.95;
@@ -849,9 +710,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Sort words by z for 3D effect
-    words.sort((a, b) => b.z - a.z);
-
     // Grid constants for assemble/output targets
     const colW = 180;
     const rowH = 36;
@@ -859,133 +717,124 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const startX = cx - (colW * totalCols) / 2 + colW / 2;
     const startY = cy - 120;
 
-    words.forEach((w) => {
-      // Compute all phase targets
-      const tChaos    = getChaosTarget(w, time);
-      const tFilter   = getFilterTarget(w, wFilter, cx, cy, pFilterLocal);
-      const tAssemble = getAssembleTarget(w, wAssemble, startX, startY, colW, rowH);
-      const tOutput   = getOutputTarget(w, wOutput, startX, startY, colW, rowH);
-      const tFade     = getFadeTarget(w);
+    const pc = phaseChaos(p);
+    const pf = phaseFilter(p);
+    const pa = phaseAssemble(p);
+    const po = phaseOutput(p);
 
-      // Weighted blend
-      let bx=0, by=0, bz=0, ba=0, bscale=0, bshadow=0;
-      let totalWeight = 0;
-      
-      const targets = [
-        { w: wChaos,    t: tChaos },
-        { w: wFilter,   t: tFilter },
-        { w: wAssemble, t: tAssemble },
-        { w: wOutput,   t: tOutput },
-        { w: wFade,     t: tFade }
-      ];
-      
-      targets.forEach(({w: weight, t}) => {
-        if (weight <= 0) return;
-        bx += t.x * weight; by += t.y * weight;
-        bz += t.z * weight; ba += t.alpha * weight;
-        bscale += t.scale * weight; bshadow += t.shadow * weight;
-        totalWeight += weight;
-      });
-      
-      if (totalWeight > 0) {
-        bx /= totalWeight; by /= totalWeight; bz /= totalWeight;
-        ba /= totalWeight; bscale /= totalWeight; bshadow /= totalWeight;
-      }
-      
-      // Spring toward blended target
-      const spring = 0.12;
-      w.x += (bx - w.x) * spring;
-      w.y += (by - w.y) * spring;
-      w.z += (bz - w.z) * spring;
-      
-      // Chaos physics every frame (modulated by chaos weight)
-      if (wChaos > 0) {
-        w.vx += (w.ox - w.x) * 0.001 * wChaos;
-        w.vy += (w.oy - w.y) * 0.001 * wChaos;
-        w.vx += Math.sin(time * 0.5 + w.idx) * 0.02 * wChaos;
-        w.vy += Math.cos(time * 0.4 + w.idx) * 0.02 * wChaos;
+    // Reset dissolved words when returning to the chaos phase
+    if (p < 0.15) {
+      words.forEach(w => { w.dissolved = false; });
+    }
+
+    words.forEach((w) => {
+      if (w.dissolved) return;
+
+      let tx = w.x, ty = w.y, tz = w.z;
+      let alpha = 1;
+      let col = w.isSignal ? '#FF5E00' : '#B8B8CC';
+      let font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
+
+      // Chaos Phase
+      if (p < 0.15) {
+        w.vx += (w.ox - w.x) * 0.001;
+        w.vy += (w.oy - w.y) * 0.001;
+        w.vx += Math.sin(time * 0.5 + w.idx) * 0.02;
+        w.vy += Math.cos(time * 0.4 + w.idx) * 0.02;
+
         if (mouse.active) {
           let dx = w.x - mouse.x, dy = w.y - mouse.y;
           let dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < 250) {
-            let force = (250 - dist) / 250;
-            w.vx += (mouse.vx * 0.015 + (dx/dist) * 0.4) * force * wChaos;
-            w.vy += (mouse.vy * 0.015 + (dy/dist) * 0.4) * force * wChaos;
+          if (dist < 280) {
+            let force = (280 - dist) / 280;
+            w.vx += (mouse.vx * 0.02 + (dx/dist) * 0.5) * force;
+            w.vy += (mouse.vy * 0.02 + (dy/dist) * 0.5) * force;
           }
         }
+
+        w.vx *= 0.94;
+        w.vy *= 0.94;
+        w.x += w.vx;
+        w.y += w.vy;
+
+        tx = w.x;
+        ty = w.y;
+        alpha = 0.6 + 0.4 * Math.sin(time*2 + w.idx);
       }
-      w.vx *= 0.94;
-      w.vy *= 0.94;
-      
-      // Add velocity influence
-      w.x += w.vx * 0.5;
-      w.y += w.vy * 0.5;
-
-      // Determine dominant phase for color and styling
-      let dominant = 'chaos', domWeight = wChaos;
-      if (wFilter > domWeight) { dominant = 'filter'; domWeight = wFilter; }
-      if (wAssemble > domWeight) { dominant = 'assemble'; domWeight = wAssemble; }
-      if (wOutput > domWeight) { dominant = 'output'; domWeight = wOutput; }
-
-      let col, font, shadow;
-
-      if (dominant === 'chaos') {
-        if (w.isSignal) {
-          col = '#FF5E00';
-          font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
+      // Filter Phase
+      else if (p < 0.35) {
+        if (!w.isSignal) {
+          w.vx += (w.x - cx) * 0.0005;
+          w.vy += (w.y - cy) * 0.0005;
+          w.x += w.vx;
+          w.y += w.vy;
+          alpha = 1 - pf;
+          if (pf > 0.8) w.dissolved = true;
         } else {
-          col = '#B8B8CC';
-          font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-        }
-        shadow = 0;
-      } else if (dominant === 'filter') {
-        if (w.isSignal) {
+          w.orbA += 0.015;
+          const targetX = cx + Math.cos(w.orbA) * w.orbR;
+          const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
+          w.x = lerp(w.x, targetX, easeInOutCubic(pf));
+          w.y = lerp(w.y, targetY, easeInOutCubic(pf));
+          tx = w.x;
+          ty = w.y;
+          tz = 100;
           col = '#FF5E00';
-          font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-          shadow = 12;
-        } else {
-          col = '#B8B8CC';
-          font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-          shadow = 0;
+          alpha = Math.min(1, 0.4 + pf);
         }
-      } else if (dominant === 'assemble') {
-        if (w.keepsSlot && w.col === 1) {
-          const tCol = Math.max(0, Math.min(1, (wAssemble - 0.20) / 0.45));
-          const r = Math.round(255 + (26 - 255) * tCol);
-          const g = Math.round(94 + (106 - 94) * tCol);
-          const b = Math.round(0 + (255 - 0) * tCol);
-          col = `rgb(${r},${g},${b})`;
-        } else {
-          col = '#FF5E00';
-        }
-        font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-        shadow = 12;
-      } else if (dominant === 'output') {
+      }
+      // Assemble Phase
+      else if (p < 0.55) {
+        if (!w.isSignal) { w.dissolved = true; return; }
         col = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
-        font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-        shadow = 12;
-      } else {
-        col = '#B8B8CC';
-        font = `400 ${w.baseSize}px "Satoshi", sans-serif`;
-        shadow = 0;
+        const targetX = startX + w.col * colW;
+        const targetY = startY + w.row * rowH;
+        const orbitX = cx + Math.cos(w.orbA) * w.orbR;
+        const orbitY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
+        if (!w.keepsSlot) {
+           w.x = orbitX;
+           w.y = orbitY - pa * 100;
+           tx = w.x; ty = w.y;
+           alpha = 1 - easeInOutCubic(pa);
+           if (pa > 0.8) w.dissolved = true;
+        } else {
+           w.x = lerp(orbitX, targetX, easeInOutCubic(pa));
+           w.y = lerp(orbitY, targetY, easeInOutCubic(pa));
+           tx = w.x;
+           ty = w.y;
+           tz = lerp(100, 0, pa);
+        }
+      }
+      // Output & Network Phase
+      else if (p < 0.95) {
+        if (!w.isSignal || !w.keepsSlot) { w.dissolved = true; return; }
+        col = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
+        const targetX = startX + w.col * colW;
+        const targetY = startY + w.row * rowH;
+        tz = 0;
+        tx = targetX;
+        ty = targetY - po * 420;
+        alpha = Math.max(0, 1 - po * 1.45);
+        if (alpha <= 0) w.dissolved = true;
+      }
+      // Fade
+      else {
+        alpha = 0;
       }
 
-      // Render
-      if (ba > 0.001) {
-        const scale = 500 / (500 + Math.max(0, bz));
+      if (alpha > 0 && !w.dissolved) {
+        const scale = 500 / (500 + Math.max(0, tz));
         if (scale > 0 && scale < 10) {
-          ctx.globalAlpha = ba * Math.min(1, scale);
+          ctx.globalAlpha = alpha * Math.min(1, scale);
           ctx.font = font;
           ctx.fillStyle = col;
           ctx.save();
-          ctx.translate(w.x, w.y);
+          ctx.translate(tx, ty);
           ctx.scale(scale, scale);
-          
-          if (w.isSignal && domWeight > 0 && dominant !== 'chaos') {
+          if (w.isSignal && p > 0.15 && p < 0.95) {
             ctx.shadowColor = 'rgba(255,94,0,0.4)';
-            ctx.shadowBlur = shadow || 12;
+            ctx.shadowBlur = 12;
           }
-          
           ctx.fillText(w.text, 0, 0);
           ctx.restore();
         }
@@ -993,13 +842,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     });
 
     // Blue structural lines between columns (assemble phase)
-    if (wAssemble > 0.5) {
+    if (pa > 0.5) {
       for (let c = 0; c < totalCols; c++) {
         const lineX = startX + c * colW - colW/2 + 20;
         ctx.beginPath();
         ctx.moveTo(lineX, cy - 140);
         ctx.lineTo(lineX, cy + 140);
-        ctx.strokeStyle = `rgba(26,106,255,${(wAssemble - 0.5) * 2 * 0.4})`;
+        ctx.strokeStyle = `rgba(26,106,255,${(pa - 0.5) * 2 * 0.4})`;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -1050,7 +899,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     });
 
     overlays.forEach((el, i) => {
-      const ranges = [0.02, 0.14, 0.32, 0.50, 0.70, 0.88];
+      const ranges = [0.02, 0.14, 0.32, 0.50, 0.68, 0.82];
       const start = ranges[i];
       const end = ranges[i+1];
       const duration = end - start;
@@ -1069,19 +918,19 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       tl.fromTo(heroContent,
         { opacity: 0, y: 40 },
         { opacity: 1, y: 0, duration: 0.10, ease: 'power2.out' },
-        0.82
+        0.84
       );
     }
 
     tl.to('#storm-canvas',
-      { opacity: 0.15, duration: 0.12, ease: 'power2.out' },
+      { opacity: 0, duration: 0.14, ease: 'power2.out' },
       0.82
     );
   }
 
   function updateFallbackUI(sp){
     if (typeof gsap !== 'undefined') return;
-    const ranges = [0.02, 0.14, 0.32, 0.50, 0.70, 0.88];
+    const ranges = [0.02, 0.14, 0.32, 0.50, 0.68, 0.82];
     overlays.forEach((el, i) => {
       const start = ranges[i] || 1;
       const end = (ranges[i+1] || 1) - 0.02;
@@ -1147,12 +996,12 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fillBar  = document.getElementById('horizonFill');
   const foot     = wrap.querySelector('.horizon-foot');
   const ctx      = cv.getContext('2d', { alpha: true });
-  const DPR      = Math.min(2, window.devicePixelRatio || 1);
+  const DPR      = Math.min(1.5, window.devicePixelRatio || 1);
   const TAU      = Math.PI * 2;
   let W = 0, H = 0, progress = 0, time = 0, raf;
 
   /* ---- Particles ---- */
-  const N = 150;
+  const N = 80;
   let particles = [];
 
   function initParticles(){
@@ -1174,8 +1023,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   /* ---- Concept fragments (converge, never vanish) ---- */
   const FRAGS = [
     'strategy', 'voice', 'narrative', 'conviction',
-    'signal', 'vision', 'identity', 'platform',
-    'authority', 'clarity', 'purpose', 'resonance'
+    'signal', 'vision', 'clarity', 'purpose'
   ];
   let textFrags = [];
 
@@ -1234,16 +1082,16 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     /* --- concentric rings --- */
     if (p2 > 0){
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([2, 5]);
       for (let r = 45; r <= 220; r += 44){
         const rr = r * (0.25 + p2 * 0.75);
         ctx.beginPath();
         ctx.arc(cx, cy, rr, 0, TAU);
         ctx.strokeStyle = `rgba(255,94,0,${p2 * 0.24 * (1 - r / 260)})`;
-        ctx.lineWidth = 0.8;
-        ctx.setLineDash([2, 5]);
         ctx.stroke();
-        ctx.setLineDash([]);
       }
+      ctx.setLineDash([]);
     }
 
     /* --- crosshair --- */
