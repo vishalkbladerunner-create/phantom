@@ -530,14 +530,11 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         signalCount++;
       }
 
-      // Safe zones keep words away from UI chrome (rails, nav, brackets)
-      const SAFE_LEFT   = 60;
-      const SAFE_RIGHT  = 200;
-      const SAFE_TOP    = 80;
-      const SAFE_BOTTOM = 130;
+      // Small edge padding so words aren't cut off at canvas boundaries
+      const EDGE_PAD = 30;
       
-      let startX = SAFE_LEFT + Math.random() * (W - SAFE_LEFT - SAFE_RIGHT);
-      let startY = SAFE_TOP + Math.random() * (H - SAFE_TOP - SAFE_BOTTOM);
+      let startX = EDGE_PAD + Math.random() * (W - EDGE_PAD * 2);
+      let startY = EDGE_PAD + Math.random() * (H - EDGE_PAD * 2);
 
       // Protect lower-left quadrant where hero-claim headline sits
       // The headline is at left: gutter, bottom: 120px, max-width: 640px
@@ -549,8 +546,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const paddingY = H * 0.38; // bottom 38%
         if (startX < paddingX && startY > H - paddingY) {
           // Re-roll: push to upper-right area
-          startX = Math.max(SAFE_LEFT, paddingX) + Math.random() * (W - Math.max(SAFE_LEFT, paddingX) - SAFE_RIGHT);
-          startY = SAFE_TOP + Math.random() * (Math.min(H - paddingY, H - SAFE_BOTTOM) - SAFE_TOP);
+          startX = Math.max(EDGE_PAD, paddingX) + Math.random() * (W - Math.max(EDGE_PAD, paddingX) - EDGE_PAD);
+          startY = EDGE_PAD + Math.random() * (Math.min(H - paddingY, H - EDGE_PAD) - EDGE_PAD);
         }
       }
 
@@ -575,16 +572,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       });
     }
 
-    // Init Grid Titles (spawn within safe zone)
-    const SAFE_LEFT   = 60;
-    const SAFE_RIGHT  = 200;
-    const SAFE_TOP    = 80;
-    const SAFE_BOTTOM = 130;
+    // Init Grid Titles (spawn with edge padding)
+    const EDGE_PAD = 30;
     for(let i=0; i<28; i++) {
       gridTitles.push({
         text: TITLES[Math.floor(Math.random() * TITLES.length)],
-        x: SAFE_LEFT + Math.random() * (W - SAFE_LEFT - SAFE_RIGHT),
-        y: SAFE_TOP + Math.random() * (H - SAFE_TOP - SAFE_BOTTOM),
+        x: EDGE_PAD + Math.random() * (W - EDGE_PAD * 2),
+        y: EDGE_PAD + Math.random() * (H - EDGE_PAD * 2),
         alpha: 0,
         connections: []
       });
