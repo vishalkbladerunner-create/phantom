@@ -1,8 +1,37 @@
 /* ==============================================================
    PHANTOM POST — SCRIPT
+   Optimized for 60fps across all devices + mobile layout fixes
    ============================================================== */
 
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Performance Tier Detection ---------- */
+const PERF = (() => {
+  const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
+  const cores = navigator.hardwareConcurrency || 2;
+  const memory = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || memory <= 4;
+  const isHighEnd = cores >= 8 && memory >= 8 && !isMobile;
+  const tier = isHighEnd ? 'high' : isLowEnd || isMobile ? 'low' : 'medium';
+
+  return {
+    tier,
+    isMobile,
+    isLowEnd,
+    dpr: isHighEnd ? Math.min(1.5, window.devicePixelRatio || 1) : isMobile ? 1 : Math.min(1.25, window.devicePixelRatio || 1),
+    flowParticles: isHighEnd ? 180 : isMobile ? 50 : 100,
+    stormWords: isHighEnd ? 360 : isMobile ? 70 : 180,
+    stormGridTitles: isHighEnd ? 14 : isMobile ? 0 : 8,
+    stormFlowParticles: isHighEnd ? 30 : isMobile ? 0 : 16,
+    horizonParticles: isHighEnd ? 80 : isMobile ? 25 : 50,
+    disableShadows: tier !== 'high',
+    disableMouse: isMobile
+  };
+})();
+
+/* ---------- Visibility State Helper ---------- */
+let DOC_VISIBLE = true;
+document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hidden; });
 
 /* ---------- Loader ---------- */
 (function loader(){
@@ -19,7 +48,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const done = () => setTimeout(() => el.classList.add('is-done'), 600);
   if (document.readyState === 'complete') done();
   else window.addEventListener('load', done);
-  setTimeout(done, 2400); // hard cap
+  setTimeout(done, 2400);
 })();
 
 /* ---------- Filed date in hero side rail ---------- */
@@ -36,12 +65,38 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (el) el.textContent = new Date().getFullYear();
 })();
 
+/* ---------- Mobile nav toggle ---------- */
+(function mobileNav(){
+  const nav = document.querySelector('.nav');
+  const links = document.querySelector('.nav-links');
+  if (!nav || !links) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'nav-toggle';
+  btn.setAttribute('aria-label', 'Toggle navigation');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = '<span></span><span></span><span></span>';
+  nav.insertBefore(btn, nav.querySelector('.nav-cta'));
+
+  btn.addEventListener('click', () => {
+    const open = nav.classList.toggle('is-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.style.overflow = open ? 'hidden' : '';
+  });
+
+  links.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      nav.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    });
+  });
+})();
+
 /* ---------- Nav scroll state ---------- */
 (function navScroll(){
   const nav = document.querySelector('.nav');
   if (!nav) return;
-
-  // Show nav immediately with hero styling
   nav.classList.add('is-hero');
 
   const upd = () => {
@@ -55,7 +110,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (premise) {
     const check = () => {
       const show = window.scrollY >= premise.offsetTop - window.innerHeight;
-      // Remove is-hero when we've scrolled well past hero, keep nav visible
       if (show) {
         nav.classList.remove('is-hero');
         nav.classList.add('is-visible');
@@ -92,7 +146,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   els.forEach(el => io.observe(el));
 })();
 
-/* ---------- Manifesto in-view (triggers strike line) ---------- */
+/* ---------- Manifesto in-view ---------- */
 (function manifestoView(){
   const sec = document.querySelector('.manifesto');
   if (!sec || !('IntersectionObserver' in window)) return;
@@ -145,10 +199,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const r = stage.getBoundingClientRect();
     const vh = window.innerHeight;
     const startY = vh * 0.7;
-    const endY   = vh * 0.2;
     const total = r.height;
     const traveled = Math.min(total, Math.max(0, startY - r.top));
-    const span = total - (vh - endY - startY);
     const pct = Math.max(0, Math.min(1, traveled / Math.max(total, 1)));
     fill.style.height = (pct * 100) + '%';
   };
@@ -159,6 +211,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Bento cursor glow ---------- */
 (function bentoGlow(){
+  if (PERF.isMobile) return;
   document.querySelectorAll('.bento-card').forEach(card => {
     card.addEventListener('mousemove', (e) => {
       const r = card.getBoundingClientRect();
@@ -179,18 +232,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const upd = () => {
     const rect = wrap.getBoundingClientRect();
     const vh = window.innerHeight;
-    // hero-wrap height minus viewport = total scrollable distance
     const total = wrap.offsetHeight - vh;
     const scrolled = Math.max(0, Math.min(total, -rect.top));
     const pct = total > 0 ? (scrolled / total) * 100 : 0;
     fill.style.height = pct + '%';
-
-    // Tick activation at 20%, 40%, 60%, 80%, 100%
     ticks.forEach((t, i) => {
       t.classList.toggle('is-hit', pct >= (i * 20));
     });
-
-    // Hide when outside hero
     if (indicator) {
       const inHero = rect.top < vh && rect.bottom > 0;
       indicator.classList.toggle('is-hidden', !inHero);
@@ -203,7 +251,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Magnetic buttons ---------- */
 (function magnetic(){
-  if (REDUCED) return;
+  if (REDUCED || PERF.isMobile) return;
   const els = document.querySelectorAll('[data-magnetic]');
   els.forEach(el => {
     let raf;
@@ -213,7 +261,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const y = e.clientY - (r.top  + r.height / 2);
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        el.style.transform = `translate(${x * 0.18}px, ${y * 0.22}px)`;
+        el.style.transform = 'translate(' + (x * 0.18) + 'px,' + (y * 0.22) + 'px)';
       });
     });
     el.addEventListener('mouseleave', () => {
@@ -223,7 +271,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   });
 })();
 
-/* ---------- Scramble text on hover for hero "visible" ---------- */
+/* ---------- Scramble text on hover ---------- */
 (function scramble(){
   if (REDUCED) return;
   const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ!<>-_\\/[]{}—=+*^?#';
@@ -249,7 +297,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.querySelectorAll('.scramble').forEach(el => {
     el.addEventListener('mouseenter', () => run(el));
   });
-  // Run once on load after entrance animation
   setTimeout(() => document.querySelectorAll('.scramble').forEach(run), 1700);
 })();
 
@@ -269,7 +316,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   io.observe(chart);
 })();
 
-/* ---------- Phase IV Compounding Loop graph scroll reveal ---------- */
+/* ---------- Phase IV graph scroll reveal ---------- */
 (function phase4Reveal(){
   const card = document.getElementById('phase4Graph');
   if (!card || !('IntersectionObserver' in window)) {
@@ -299,20 +346,19 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 })();
 
 /* ==============================================================
-   FLOW-FIELD HERO BACKGROUND
-   Particles drifting through a Perlin-ish noise field, with
-   subtle mouse repulsion. Brand orange + electric blue.
+   FLOW-FIELD HERO BACKGROUND — Optimized
    ============================================================== */
 (function flowField(){
   const cv = document.getElementById('flow-canvas');
   if (!cv || REDUCED) return;
-  const ctx = cv.getContext('2d', { alpha: true });
-  let W = 0, H = 0, DPR = Math.min(1.5, window.devicePixelRatio || 1);
+  const ctx = cv.getContext('2d', { alpha: false });
+  let W = 0, H = 0, DPR = PERF.dpr;
   let particles = [];
   let mouse = { x: -9999, y: -9999, active: false };
+  let mouseRaf = 0;
   const TAU = Math.PI * 2;
 
-  /* simplex-ish 2D value noise (cheap & smooth enough) */
+  /* Simplex-ish 2D value noise */
   const perm = new Uint8Array(512);
   for (let i = 0; i < 256; i++) perm[i] = i;
   for (let i = 255; i > 0; i--){
@@ -336,7 +382,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       lerp(grad(perm[A], x, y),     grad(perm[B], x-1, y), u),
       lerp(grad(perm[A+1], x, y-1), grad(perm[B+1], x-1, y-1), u),
       v
-    ) * 0.5; // -1..1
+    ) * 0.5;
   };
 
   const resize = () => {
@@ -348,25 +394,34 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     initParticles();
   };
 
-  const COUNT = () => Math.floor(Math.min(200, (W * H) / 10000));
+  const COUNT = () => Math.floor(Math.min(PERF.flowParticles, (W * H) / 12000));
 
   const initParticles = () => {
     const n = COUNT();
-    particles = new Array(n).fill(0).map(() => ({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      px: 0, py: 0,
-      life: Math.random() * 240 + 80,
-      hue: Math.random() < 0.55 ? 22 : 220, // orange or blue
-      a: 0
-    }));
-    particles.forEach(p => { p.px = p.x; p.py = p.y; });
+    particles = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = Math.random() * W;
+      const y = Math.random() * H;
+      particles[i] = {
+        x: x, y: y, px: x, py: y,
+        life: Math.random() * 240 + 80,
+        hue: Math.random() < 0.55 ? 22 : 220,
+        a: 0
+      };
+    }
   };
 
   let t = 0;
-  const step = () => {
-    // gentle trail fade
-    ctx.fillStyle = 'rgba(5, 8, 16, 0.08)';
+  let raf;
+  let lastFrame = 0;
+
+  const step = (now) => {
+    if (!DOC_VISIBLE) { raf = requestAnimationFrame(step); return; }
+    // Skip every other frame on low-end devices for 30fps cap
+    if (PERF.tier === 'low' && (now - lastFrame) < 32) { raf = requestAnimationFrame(step); return; }
+    lastFrame = now;
+
+    ctx.fillStyle = '#050810';
     ctx.fillRect(0, 0, W, H);
 
     t += 0.0018;
@@ -381,8 +436,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       let vx = Math.cos(angle) * SPEED;
       let vy = Math.sin(angle) * SPEED;
 
-      // mouse repulsion
-      if (mouse.active){
+      if (mouse.active && !PERF.disableMouse){
         const dx = p.x - mouse.x, dy = p.y - mouse.y;
         const d2 = dx*dx + dy*dy;
         if (d2 < 22000){
@@ -407,7 +461,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       const sat = p.hue === 22 ? 100 : 90;
       const lit = p.hue === 22 ? 55  : 60;
-      ctx.strokeStyle = `hsla(${p.hue}, ${sat}%, ${lit}%, ${p.a})`;
+      ctx.strokeStyle = 'hsla(' + p.hue + ',' + sat + '%,' + lit + '%,' + p.a + ')';
       ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.moveTo(p.px, p.py);
@@ -418,18 +472,21 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     raf = requestAnimationFrame(step);
   };
 
-  let raf;
-  const start = () => { cancelAnimationFrame(raf); step(); };
+  const start = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(step); };
 
-  cv.addEventListener('mousemove', (e) => {
-    const r = cv.getBoundingClientRect();
-    mouse.x = e.clientX - r.left;
-    mouse.y = e.clientY - r.top;
-    mouse.active = true;
-  });
-  cv.addEventListener('mouseleave', () => { mouse.active = false; });
+  if (!PERF.disableMouse) {
+    cv.addEventListener('mousemove', (e) => {
+      cancelAnimationFrame(mouseRaf);
+      mouseRaf = requestAnimationFrame(() => {
+        const r = cv.getBoundingClientRect();
+        mouse.x = e.clientX - r.left;
+        mouse.y = e.clientY - r.top;
+        mouse.active = true;
+      });
+    });
+    cv.addEventListener('mouseleave', () => { mouse.active = false; });
+  }
 
-  // Pause when hero out of view (perf)
   const hero = document.querySelector('.hero-wrap');
   if (hero && 'IntersectionObserver' in window){
     const io = new IntersectionObserver(([en]) => {
@@ -444,8 +501,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   start();
 })();
 
+
 /* ==============================================================
-   TYPOGRAPHIC STORM v4 — Final Fixes (Flow Field + Physics)
+   TYPOGRAPHIC STORM v5 — Performance Optimized
    ============================================================== */
 (function typographicStorm(){
   const wrap = document.querySelector('.hero-wrap');
@@ -464,44 +522,46 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   const ctx = cv.getContext('2d', { alpha: true });
-  let DPR = Math.min(2, window.devicePixelRatio || 1);
-  if (window.innerWidth > 3000 || window.innerHeight > 2000) DPR = Math.min(1.5, DPR);
+  let DPR = PERF.dpr;
   const TAU = Math.PI * 2;
   let W = 0, H = 0, raf;
   let isDrawing = false;
-
   let time = 0, lastTime = 0;
   let rawProgress = 0, smoothProgress = 0;
 
-  // Mouse interaction
+  // Throttled mouse
   let mouse = { x: -1000, y: -1000, vx: 0, vy: 0, active: false };
-  cv.addEventListener('mousemove', (e) => {
-    const r = cv.getBoundingClientRect();
-    const nx = e.clientX - r.left;
-    const ny = e.clientY - r.top;
-    mouse.vx = nx - mouse.x;
-    mouse.vy = ny - mouse.y;
-    mouse.x = nx;
-    mouse.y = ny;
-    mouse.active = true;
-  });
-  cv.addEventListener('mouseleave', () => { mouse.active = false; });
+  let mouseRaf = 0;
+  if (!PERF.disableMouse) {
+    cv.addEventListener('mousemove', (e) => {
+      cancelAnimationFrame(mouseRaf);
+      mouseRaf = requestAnimationFrame(() => {
+        const r = cv.getBoundingClientRect();
+        const nx = e.clientX - r.left;
+        const ny = e.clientY - r.top;
+        mouse.vx = nx - mouse.x;
+        mouse.vy = ny - mouse.y;
+        mouse.x = nx;
+        mouse.y = ny;
+        mouse.active = true;
+      });
+    });
+    cv.addEventListener('mouseleave', () => { mouse.active = false; });
+  }
 
-  // Databases
-  const NOISE = ["maybe", "sort of", "I guess", "unclear", "noise", "doubt", "probably", "somewhat", "vague", "random", "clutter", "messy", "lost", "static", "um", "like", "could be", "perhaps", "tbd"];
-  const SIGNAL = ["conviction", "thesis", "principle", "observation", "pattern", "insight", "belief", "framework", "strategy", "vision", "authority", "clarity", "purpose", "signal", "truth", "leverage", "compound", "architecture"];
+  const NOISE = ["maybe","sort of","I guess","unclear","noise","doubt","probably","somewhat","vague","random","clutter","messy","lost","static","um","like","could be","perhaps","tbd"];
+  const SIGNAL = ["conviction","thesis","principle","observation","pattern","insight","belief","framework","strategy","vision","authority","clarity","purpose","signal","truth","leverage","compound","architecture"];
   const TITLES = [
-    "The Architecture of Trust", "Scaling Culture", "Beyond Product Market Fit",
-    "The Authority Engine", "Reputation as Infrastructure", "Navigating the Cycle",
-    "Founder to CEO", "The Signal in the Noise", "Engineering Serendipity"
+    "The Architecture of Trust","Scaling Culture","Beyond Product Market Fit",
+    "The Authority Engine","Reputation as Infrastructure","Navigating the Cycle",
+    "Founder to CEO","The Signal in the Noise","Engineering Serendipity"
   ];
 
   let words = [];
   let gridTitles = [];
   let flowParticles = [];
 
-  // Perlin noise approximation for flow field
-  function noise(x, y) {
+  function noiseFn(x, y) {
     return Math.sin(x * 0.05) * Math.cos(y * 0.05) + Math.sin(x * 0.02 + y * 0.03);
   }
 
@@ -511,10 +571,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     flowParticles = [];
 
     let signalCount = 0;
-    const WORD_COUNT = () => Math.floor(Math.min(380, (W * H) / 4200)); 
-    const MAX_SIGNAL = 24; // Limit assembled grid to 3x8 block
+    const WORD_COUNT = () => Math.floor(Math.min(PERF.stormWords, (W * H) / 5000));
+    const MAX_SIGNAL = 24;
 
-    // Init Words — full canvas coverage, no padding, no protect zone
     for(let i=0; i<WORD_COUNT(); i++) {
       const isSignal = Math.random() < 0.3;
       let col = 0, row = 0, keepsSlot = false;
@@ -524,62 +583,52 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         keepsSlot = true;
         signalCount++;
       }
-
       const startX = Math.random() * W;
       const startY = Math.random() * H;
-
       words.push({
         text: isSignal ? SIGNAL[Math.floor(Math.random() * SIGNAL.length)] : NOISE[Math.floor(Math.random() * NOISE.length)],
-        isSignal,
-        keepsSlot,
-        ox: startX,
-        oy: startY,
-        x: startX,
-        y: startY,
-        z: Math.random() * 200, 
-        vx: 0,
-        vy: 0,
+        isSignal, keepsSlot,
+        ox: startX, oy: startY,
+        x: startX, y: startY,
+        z: Math.random() * 200,
+        vx: 0, vy: 0,
         baseSize: isSignal ? 16 + Math.random()*5 : 14 + Math.random()*4,
-        alpha: 0,
-        dissolved: false,
+        alpha: 0, dissolved: false,
         orbA: Math.random() * TAU,
         orbR: 150 + Math.random() * 250,
-        col: col,
-        row: row,
-        idx: i
+        col, row, idx: i
       });
     }
 
-    // Init Grid Titles
-    for(let i=0; i<16; i++) {
-      gridTitles.push({
-        text: TITLES[Math.floor(Math.random() * TITLES.length)],
-        x: Math.random() * W,
-        y: Math.random() * H,
-        alpha: 0,
-        connections: []
-      });
-    }
-    for(let i=0; i<gridTitles.length; i++) {
-      for(let j=i+1; j<gridTitles.length; j++) {
-        const dx = gridTitles[i].x - gridTitles[j].x;
-        const dy = gridTitles[i].y - gridTitles[j].y;
-        if(dx*dx + dy*dy < 60000) {
-          gridTitles[i].connections.push(j);
+    if (PERF.stormGridTitles > 0) {
+      for(let i=0; i<PERF.stormGridTitles; i++) {
+        gridTitles.push({
+          text: TITLES[Math.floor(Math.random() * TITLES.length)],
+          x: Math.random() * W, y: Math.random() * H,
+          alpha: 0, connections: []
+        });
+      }
+      for(let i=0; i<gridTitles.length; i++) {
+        for(let j=i+1; j<gridTitles.length; j++) {
+          const dx = gridTitles[i].x - gridTitles[j].x;
+          const dy = gridTitles[i].y - gridTitles[j].y;
+          if(dx*dx + dy*dy < 60000) {
+            gridTitles[i].connections.push(j);
+          }
         }
       }
     }
 
-    // Init Flow Particles
-    for(let i=0; i<35; i++) {
-      flowParticles.push({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        vx: 0, vy: 0,
-        life: Math.random() * 100,
-        maxLife: 50 + Math.random() * 100,
-        color: Math.random() > 0.5 ? 'rgba(255,94,0,0.15)' : 'rgba(26,106,255,0.15)'
-      });
+    if (PERF.stormFlowParticles > 0) {
+      for(let i=0; i<PERF.stormFlowParticles; i++) {
+        flowParticles.push({
+          x: Math.random() * W, y: Math.random() * H,
+          vx: 0, vy: 0,
+          life: Math.random() * 100,
+          maxLife: 50 + Math.random() * 100,
+          color: Math.random() > 0.5 ? 'rgba(255,94,0,0.15)' : 'rgba(26,106,255,0.15)'
+        });
+      }
     }
   }
 
@@ -589,21 +638,19 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     resizeTimer = setTimeout(() => {
       const r = cv.getBoundingClientRect();
       W = r.width; H = r.height;
-      DPR = Math.min(2, window.devicePixelRatio || 1);
-      if (window.innerWidth > 3000 || window.innerHeight > 2000) DPR = Math.min(1.5, DPR);
+      DPR = PERF.dpr;
       cv.width = Math.floor(W * DPR);
       cv.height = Math.floor(H * DPR);
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       init();
       if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
-    }, 120);
+    }, 150);
   }
 
   function lerp(a, b, t) { return a + (b - a) * t; }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function easeInOutCubic(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
 
-  // Linear phases (monotonic — no fade-back-in)
   const phaseChaos    = (p) => Math.max(0, Math.min(1, p / 0.15));
   const phaseFilter   = (p) => Math.max(0, Math.min(1, (p - 0.15) / 0.20));
   const phaseAssemble = (p) => Math.max(0, Math.min(1, (p - 0.35) / 0.20));
@@ -611,7 +658,26 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const phaseNetwork  = (p) => Math.max(0, Math.min(1, (p - 0.75) / 0.20));
   const phaseFade     = (p) => Math.max(0, Math.min(1, (p - 0.95) / 0.05));
 
+  // Pre-create vignette gradient when possible
+  let vignetteGrad = null;
+  function getVignette(cx, cy, outer) {
+    if (!vignetteGrad) {
+      vignetteGrad = ctx.createRadialGradient(cx, cy, outer * 0.2, cx, cy, outer);
+      vignetteGrad.addColorStop(0, 'transparent');
+      vignetteGrad.addColorStop(1, 'rgba(5,8,16,0.6)');
+    }
+    return vignetteGrad;
+  }
+
+  let frameSkip = 0;
   function draw(now) {
+    if (!DOC_VISIBLE) { raf = requestAnimationFrame(draw); return; }
+    // Frame skip for low-end: cap at 30fps
+    if (PERF.tier === 'low') {
+      frameSkip = (frameSkip + 1) % 2;
+      if (frameSkip === 1) { raf = requestAnimationFrame(draw); return; }
+    }
+
     isDrawing = true;
     const t = now || performance.now();
     if (!lastTime) lastTime = t;
@@ -625,92 +691,83 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let p = smoothProgress;
 
     ctx.clearRect(0, 0, W, H);
-    
     const cx = W / 2;
     const cy = H / 2;
 
-    // Legacy normalized progress for overlay sections that need them
     const pOutput  = Math.max(0, Math.min(1, (p - 0.55) / 0.20));
     const pNetwork = Math.max(0, Math.min(1, (p - 0.75) / 0.20));
     const pFade    = Math.max(0, Math.min(1, (p - 0.95) / 0.05));
 
-    // Vignette
+    // Vignette (cached gradient)
     const outer = Math.max(W, H) * 0.95;
-    const vig = ctx.createRadialGradient(cx, cy, outer * 0.2, cx, cy, outer);
-    vig.addColorStop(0, 'transparent');
-    vig.addColorStop(1, 'rgba(5,8,16,0.6)');
-    ctx.fillStyle = vig;
+    ctx.fillStyle = getVignette(cx, cy, outer);
     ctx.fillRect(0, 0, W, H);
 
-    // Flow Field Background (always active)
-    ctx.lineWidth = 1.5;
-    flowParticles.forEach(fp => {
-      let angle = noise(fp.x, fp.y) * TAU;
-      fp.vx += Math.cos(angle) * 0.05;
-      fp.vy += Math.sin(angle) * 0.05;
-      fp.vx *= 0.95;
-      fp.vy *= 0.95;
-      
-      ctx.beginPath();
-      ctx.moveTo(fp.x, fp.y);
-      fp.x += fp.vx * 2;
-      fp.y += fp.vy * 2;
-      ctx.lineTo(fp.x, fp.y);
-      
-      let lifeRatio = Math.sin((fp.life / fp.maxLife) * Math.PI);
-      ctx.strokeStyle = fp.color.replace('0.15', `${0.3 * lifeRatio}`);
-      ctx.stroke();
-
-      fp.life++;
-      if (fp.life > fp.maxLife || fp.x < 0 || fp.x > W || fp.y < 0 || fp.y > H) {
-        fp.x = Math.random() * W;
-        fp.y = Math.random() * H;
-        fp.life = 0;
-        fp.maxLife = 50 + Math.random() * 100;
-        fp.vx = 0; fp.vy = 0;
+    // Flow Field Background
+    if (PERF.stormFlowParticles > 0) {
+      ctx.lineWidth = 1.5;
+      for (let k = 0; k < flowParticles.length; k++) {
+        const fp = flowParticles[k];
+        let angle = noiseFn(fp.x, fp.y) * TAU;
+        fp.vx += Math.cos(angle) * 0.05;
+        fp.vy += Math.sin(angle) * 0.05;
+        fp.vx *= 0.95;
+        fp.vy *= 0.95;
+        ctx.beginPath();
+        ctx.moveTo(fp.x, fp.y);
+        fp.x += fp.vx * 2;
+        fp.y += fp.vy * 2;
+        ctx.lineTo(fp.x, fp.y);
+        let lifeRatio = Math.sin((fp.life / fp.maxLife) * Math.PI);
+        ctx.strokeStyle = fp.color.replace('0.15', (0.3 * lifeRatio).toFixed(2));
+        ctx.stroke();
+        fp.life++;
+        if (fp.life > fp.maxLife || fp.x < 0 || fp.x > W || fp.y < 0 || fp.y > H) {
+          fp.x = Math.random() * W; fp.y = Math.random() * H;
+          fp.life = 0; fp.maxLife = 50 + Math.random() * 100;
+          fp.vx = 0; fp.vy = 0;
+        }
       }
-    });
+    }
 
     // Background Glow in Network
-    if (pNetwork > 0) {
+    if (pNetwork > 0 && !PERF.disableShadows) {
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 500);
-      g.addColorStop(0, `rgba(255,94,0,${pNetwork * 0.12 * (1 - pFade)})`);
+      g.addColorStop(0, 'rgba(255,94,0,' + (pNetwork * 0.12 * (1 - pFade)) + ')');
       g.addColorStop(1, 'transparent');
       ctx.fillStyle = g;
       ctx.fillRect(0,0,W,H);
     }
 
     // Grid Titles and Network
-    if (pOutput > 0 && pFade < 1) {
+    if (pOutput > 0 && pFade < 1 && gridTitles.length > 0) {
       const gOp = pOutput * (1 - pFade);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = '500 12px "JetBrains Mono", monospace';
-      
-      gridTitles.forEach((t, i) => {
-        t.alpha = Math.min(1, gOp * (0.2 + 0.8 * Math.sin(i + time)));
-        ctx.fillStyle = `rgba(244,244,248,${t.alpha * 0.18})`;
+      for (let k = 0; k < gridTitles.length; k++) {
+        const t = gridTitles[k];
+        t.alpha = Math.min(1, gOp * (0.2 + 0.8 * Math.sin(k + time)));
+        ctx.fillStyle = 'rgba(244,244,248,' + (t.alpha * 0.18) + ')';
         ctx.fillText(t.text, t.x, t.y);
-
         if (pNetwork > 0) {
-          t.connections.forEach(j => {
-            const tj = gridTitles[j];
+          for (let ci = 0; ci < t.connections.length; ci++) {
+            const tj = gridTitles[t.connections[ci]];
             ctx.beginPath();
             ctx.moveTo(t.x, t.y);
             ctx.lineTo(tj.x, tj.y);
-            ctx.strokeStyle = `rgba(255,94,0,${pNetwork * gOp * 0.18 * (t.alpha + tj.alpha)/2})`;
+            ctx.strokeStyle = 'rgba(255,94,0,' + (pNetwork * gOp * 0.18 * (t.alpha + tj.alpha)/2) + ')';
             ctx.lineWidth = 0.5;
             ctx.stroke();
-          });
+          }
         }
-      });
+      }
     }
 
     // Words
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Grid constants for assemble/output targets
     const colW = 180;
     const rowH = 36;
     const totalCols = 3;
@@ -722,27 +779,43 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const pa = phaseAssemble(p);
     const po = phaseOutput(p);
 
-    // Reset dissolved words when returning to the chaos phase
     if (p < 0.15) {
-      words.forEach(w => { w.dissolved = false; });
+      for (let k = 0; k < words.length; k++) { words[k].dissolved = false; }
     }
 
-    words.forEach((w) => {
-      if (w.dissolved) return;
+    // Batch words by shadow state to minimize shadowBlur changes
+    const drawWord = (w, tx, ty, scale, alpha, col, font) => {
+      const sa = alpha * Math.min(1, scale);
+      if (sa <= 0.01) return;
+      ctx.globalAlpha = sa;
+      ctx.font = font;
+      ctx.fillStyle = col;
+      // Manual transform instead of save/restore
+      const invScale = 1 / scale;
+      ctx.translate(tx, ty);
+      ctx.scale(scale, scale);
+      ctx.fillText(w.text, 0, 0);
+      ctx.scale(invScale, invScale);
+      ctx.translate(-tx, -ty);
+    };
+
+    for (let k = 0; k < words.length; k++) {
+      const w = words[k];
+      if (w.dissolved) continue;
 
       let tx = w.x, ty = w.y, tz = w.z;
       let alpha = 1;
       let col = w.isSignal ? '#FF5E00' : '#B8B8CC';
-      let font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
+      let font = '600 ' + w.baseSize + 'px "Satoshi", sans-serif';
+      let useShadow = false;
 
-      // Chaos Phase
       if (p < 0.15) {
         w.vx += (w.ox - w.x) * 0.001;
         w.vy += (w.oy - w.y) * 0.001;
         w.vx += Math.sin(time * 0.5 + w.idx) * 0.02;
         w.vy += Math.cos(time * 0.4 + w.idx) * 0.02;
 
-        if (mouse.active) {
+        if (mouse.active && !PERF.disableMouse) {
           let dx = w.x - mouse.x, dy = w.y - mouse.y;
           let dist = Math.sqrt(dx*dx + dy*dy);
           if (dist < 280) {
@@ -756,18 +829,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         w.vy *= 0.94;
         w.x += w.vx;
         w.y += w.vy;
-
-        tx = w.x;
-        ty = w.y;
+        tx = w.x; ty = w.y;
         alpha = 0.6 + 0.4 * Math.sin(time*2 + w.idx);
-      }
-      // Filter Phase
-      else if (p < 0.35) {
+      } else if (p < 0.35) {
         if (!w.isSignal) {
           w.vx += (w.x - cx) * 0.0005;
           w.vy += (w.y - cy) * 0.0005;
-          w.x += w.vx;
-          w.y += w.vy;
+          w.x += w.vx; w.y += w.vy;
           alpha = 1 - pf;
           if (pf > 0.8) w.dissolved = true;
         } else {
@@ -776,16 +844,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
           w.x = lerp(w.x, targetX, easeInOutCubic(pf));
           w.y = lerp(w.y, targetY, easeInOutCubic(pf));
-          tx = w.x;
-          ty = w.y;
+          tx = w.x; ty = w.y;
           tz = 100;
           col = '#FF5E00';
           alpha = Math.min(1, 0.4 + pf);
         }
-      }
-      // Assemble Phase
-      else if (p < 0.55) {
-        if (!w.isSignal) { w.dissolved = true; return; }
+      } else if (p < 0.55) {
+        if (!w.isSignal) { w.dissolved = true; continue; }
         col = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
         const targetX = startX + w.col * colW;
         const targetY = startY + w.row * rowH;
@@ -800,14 +865,11 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         } else {
            w.x = lerp(orbitX, targetX, easeInOutCubic(pa));
            w.y = lerp(orbitY, targetY, easeInOutCubic(pa));
-           tx = w.x;
-           ty = w.y;
+           tx = w.x; ty = w.y;
            tz = lerp(100, 0, pa);
         }
-      }
-      // Output & Network Phase
-      else if (p < 0.95) {
-        if (!w.isSignal || !w.keepsSlot) { w.dissolved = true; return; }
+      } else if (p < 0.95) {
+        if (!w.isSignal || !w.keepsSlot) { w.dissolved = true; continue; }
         col = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
         const targetX = startX + w.col * colW;
         const targetY = startY + w.row * rowH;
@@ -816,55 +878,53 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         ty = targetY - po * 420;
         alpha = Math.max(0, 1 - po * 1.45);
         if (alpha <= 0) w.dissolved = true;
-      }
-      // Fade
-      else {
+      } else {
         alpha = 0;
       }
 
       if (alpha > 0 && !w.dissolved) {
         const scale = 500 / (500 + Math.max(0, tz));
         if (scale > 0 && scale < 10) {
-          ctx.globalAlpha = alpha * Math.min(1, scale);
-          ctx.font = font;
-          ctx.fillStyle = col;
-          ctx.save();
-          ctx.translate(tx, ty);
-          ctx.scale(scale, scale);
-          if (w.isSignal && p > 0.15 && p < 0.95) {
+          // Apply shadow only for signal words in non-chaos phases
+          const needsShadow = !PERF.disableShadows && w.isSignal && p > 0.15 && p < 0.95;
+          if (needsShadow) {
             ctx.shadowColor = 'rgba(255,94,0,0.4)';
             ctx.shadowBlur = 12;
+          } else {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
           }
-          ctx.fillText(w.text, 0, 0);
-          ctx.restore();
+          drawWord(w, tx, ty, scale, alpha, col, font);
         }
       }
-    });
+    }
 
-    // Blue structural lines between columns (assemble phase)
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    // Blue structural lines
     if (pa > 0.5) {
       for (let c = 0; c < totalCols; c++) {
         const lineX = startX + c * colW - colW/2 + 20;
         ctx.beginPath();
         ctx.moveTo(lineX, cy - 140);
         ctx.lineTo(lineX, cy + 140);
-        ctx.strokeStyle = `rgba(26,106,255,${(pa - 0.5) * 2 * 0.4})`;
+        ctx.strokeStyle = 'rgba(26,106,255,' + ((pa - 0.5) * 2 * 0.4) + ')';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
     }
 
     updateFallbackUI(p);
-
-    // Reset mouse velocities to decay if no movement
     mouse.vx *= 0.5;
     mouse.vy *= 0.5;
 
-    ctx.globalAlpha = 1;
     raf = requestAnimationFrame(draw);
   }
 
-  // ---- GSAP ScrollTrigger + Timeline ----
+  // GSAP ScrollTrigger
   if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined'){
     gsap.registerPlugin(ScrollTrigger);
 
@@ -880,12 +940,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       onUpdate: (self) => {
         rawProgress = self.progress;
         const revealed = self.progress > 0.80;
-        if (heroContent) {
-          heroContent.classList.toggle('is-revealed', revealed);
-        }
-        if (heroSticky) {
-          heroSticky.classList.toggle('has-revealed', revealed);
-        }
+        if (heroContent) heroContent.classList.toggle('is-revealed', revealed);
+        if (heroSticky) heroSticky.classList.toggle('has-revealed', revealed);
       }
     });
 
@@ -946,7 +1002,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         cancelAnimationFrame(raf);
         isDrawing = false;
         lastTime = 0;
-        draw();
+        raf = requestAnimationFrame(draw);
       } else {
         cancelAnimationFrame(raf);
         isDrawing = false;
@@ -965,14 +1021,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     isDrawing = false;
     const r = cv.getBoundingClientRect();
     W = r.width; H = r.height;
-    DPR = Math.min(2, window.devicePixelRatio || 1);
-    if (window.innerWidth > 3000 || window.innerHeight > 2000) DPR = Math.min(1.5, DPR);
+    DPR = PERF.dpr;
     cv.width = Math.floor(W * DPR);
     cv.height = Math.floor(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     init();
     if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
-    draw();
+    raf = requestAnimationFrame(draw);
   }
   if (document.fonts && document.fonts.ready){
     document.fonts.ready.then(start);
@@ -982,9 +1037,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 })();
 
+
 /* ==============================================================
-   HORIZON EFFECT — Scroll-driven chaos → clarity visualization
-   Text fragments CONVERGE (never vanish) — concepts get combined.
+   HORIZON EFFECT — Optimized
    ============================================================== */
 (function horizonEffect(){
   const wrap = document.getElementById('horizon');
@@ -996,12 +1051,11 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fillBar  = document.getElementById('horizonFill');
   const foot     = wrap.querySelector('.horizon-foot');
   const ctx      = cv.getContext('2d', { alpha: true });
-  const DPR      = Math.min(1.5, window.devicePixelRatio || 1);
+  const DPR      = PERF.dpr;
   const TAU      = Math.PI * 2;
   let W = 0, H = 0, progress = 0, time = 0, raf;
 
-  /* ---- Particles ---- */
-  const N = 80;
+  const N = PERF.horizonParticles;
   let particles = [];
 
   function initParticles(){
@@ -1020,11 +1074,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
   }
 
-  /* ---- Concept fragments (converge, never vanish) ---- */
-  const FRAGS = [
-    'strategy', 'voice', 'narrative', 'conviction',
-    'signal', 'vision', 'clarity', 'purpose'
-  ];
+  const FRAGS = ['strategy','voice','narrative','conviction','signal','vision','clarity','purpose'];
   let textFrags = [];
 
   function initFragments(){
@@ -1036,8 +1086,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         text: t,
         sx: W * 0.2 + Math.random() * W * 0.7,
         sy: H * 0.06 + Math.random() * H * 0.88,
-        convAngle: convAngle,
-        convR: R,
+        convAngle, convR: R,
         offset: Math.random() * TAU,
         baseAlpha: 0.24 + Math.random() * 0.16,
         size: 14 + Math.random() * 5,
@@ -1046,7 +1095,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     });
   }
 
-  /* ---- Resize ---- */
   function resize(){
     const r = cv.getBoundingClientRect();
     W = r.width; H = r.height;
@@ -1057,8 +1105,14 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     initFragments();
   }
 
-  /* ---- Draw ---- */
-  function draw(){
+  let lastFrame = 0;
+  let frameSkip = 0;
+
+  function draw(now){
+    if (!DOC_VISIBLE) { raf = requestAnimationFrame(draw); return; }
+    if (PERF.tier === 'low' && (now - lastFrame) < 32) { raf = requestAnimationFrame(draw); return; }
+    lastFrame = now;
+
     ctx.clearRect(0, 0, W, H);
     time += 0.012;
 
@@ -1069,18 +1123,18 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const p3   = Math.max(0, Math.min(1, (progress - 0.60) * 2.5));
     const conv = Math.max(0, Math.min(1, (progress - 0.08) / 0.58));
 
-    /* --- ambient glow --- */
+    // Ambient glow
     const glR = 200 + p2 * 180;
     ctx.beginPath();
     ctx.arc(cx, cy, glR, 0, TAU);
     const gg = ctx.createRadialGradient(cx, cy, 0, cx, cy, glR);
-    gg.addColorStop(0,   `rgba(255,94,0,${0.07 + p2 * 0.14})`);
-    gg.addColorStop(0.45,`rgba(255,94,0,${0.02 + p2 * 0.05})`);
-    gg.addColorStop(1,   'transparent');
+    gg.addColorStop(0, 'rgba(255,94,0,' + (0.07 + p2 * 0.14) + ')');
+    gg.addColorStop(0.45,'rgba(255,94,0,' + (0.02 + p2 * 0.05) + ')');
+    gg.addColorStop(1, 'transparent');
     ctx.fillStyle = gg;
     ctx.fill();
 
-    /* --- concentric rings --- */
+    // Concentric rings
     if (p2 > 0){
       ctx.lineWidth = 0.8;
       ctx.setLineDash([2, 5]);
@@ -1088,33 +1142,35 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const rr = r * (0.25 + p2 * 0.75);
         ctx.beginPath();
         ctx.arc(cx, cy, rr, 0, TAU);
-        ctx.strokeStyle = `rgba(255,94,0,${p2 * 0.24 * (1 - r / 260)})`;
+        ctx.strokeStyle = 'rgba(255,94,0,' + (p2 * 0.24 * (1 - r / 260)) + ')';
         ctx.stroke();
       }
       ctx.setLineDash([]);
     }
 
-    /* --- crosshair --- */
+    // Crosshair
     if (p2 > 0.15){
       const ca = (p2 - 0.15) / 0.85 * 0.18;
-      ctx.strokeStyle = `rgba(244,244,248,${ca})`;
+      ctx.strokeStyle = 'rgba(244,244,248,' + ca + ')';
       ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(cx - 240, cy); ctx.lineTo(cx + 240, cy); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx, cy - 240); ctx.lineTo(cx, cy + 240); ctx.stroke();
     }
 
-    /* --- pulsing outer ring (clarity) --- */
+    // Pulsing outer ring
     if (p3 > 0){
       const pulse = 0.5 + Math.sin(time * 1.8) * 0.5;
       ctx.beginPath();
       ctx.arc(cx, cy, 225 + pulse * 25, 0, TAU);
-      ctx.strokeStyle = `rgba(255,94,0,${p3 * 0.14 * pulse})`;
+      ctx.strokeStyle = 'rgba(255,94,0,' + (p3 * 0.14 * pulse) + ')';
       ctx.lineWidth = 1.6;
       ctx.stroke();
     }
 
-    /* --- radiating signal lines --- */
+    // Radiating signal lines
     if (p3 > 0){
+      ctx.strokeStyle = 'rgba(255,94,0,' + (p3 * 0.09) + ')';
+      ctx.lineWidth = 1.2;
       for (let i = 0; i < 16; i++){
         const a = (i / 16) * TAU + time * 0.1;
         const inner = 220;
@@ -1122,14 +1178,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         ctx.beginPath();
         ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
         ctx.lineTo(cx + Math.cos(a) * (inner + len), cy + Math.sin(a) * (inner + len));
-        ctx.strokeStyle = `rgba(255,94,0,${p3 * 0.09})`;
-        ctx.lineWidth = 1.2;
         ctx.stroke();
       }
     }
 
-    /* --- particles --- */
-    for (const p of particles){
+    // Particles
+    for (let i = 0; i < particles.length; i++){
+      const p = particles[i];
       const chaosX = p.sx + Math.sin(time * p.speed + p.offset) * 65;
       const chaosY = p.sy + Math.cos(time * p.speed * 0.7 + p.offset) * 65;
       const orbitA = p.angle + time * p.speed * 0.22;
@@ -1144,60 +1199,57 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       ctx.beginPath();
       ctx.arc(x, y, r, 0, TAU);
-      ctx.fillStyle = `hsla(${p.hue},${sat}%,${lit}%,${alpha})`;
+      ctx.fillStyle = 'hsla(' + p.hue + ',' + sat + '%,' + lit + '%,' + alpha + ')';
       ctx.fill();
 
-      if (p3 > 0){
+      if (p3 > 0 && !PERF.disableShadows){
         ctx.beginPath();
         ctx.arc(x, y, r * 4, 0, TAU);
-        ctx.fillStyle = `hsla(${p.hue},${sat}%,${lit}%,${p3 * 0.06})`;
+        ctx.fillStyle = 'hsla(' + p.hue + ',' + sat + '%,' + lit + '%,' + (p3 * 0.06) + ')';
         ctx.fill();
       }
     }
 
-    /* --- center dot --- */
+    // Center dot
     if (p2 > 0.15){
       const da = Math.min(1, (p2 - 0.15) / 0.35);
       ctx.beginPath();
       ctx.arc(cx, cy, 5.5, 0, TAU);
-      ctx.fillStyle = `rgba(244,244,248,${da * 0.95})`;
+      ctx.fillStyle = 'rgba(244,244,248,' + (da * 0.95) + ')';
       ctx.fill();
       ctx.beginPath();
       ctx.arc(cx, cy, 22, 0, TAU);
-      ctx.fillStyle = `rgba(255,94,0,${da * 0.16})`;
+      ctx.fillStyle = 'rgba(255,94,0,' + (da * 0.16) + ')';
       ctx.fill();
     }
 
-    /* --- text fragments (converge toward center, NEVER vanish) --- */
+    // Text fragments
     const fPos = [];
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    for (const f of textFrags){
+    for (let i = 0; i < textFrags.length; i++){
+      const f = textFrags[i];
       const chaosX = f.sx + Math.sin(time * 0.28 + f.offset) * 40;
       const chaosY = f.sy + Math.cos(time * 0.22 + f.offset) * 40;
-
       const orbitA = f.convAngle + time * 0.04;
       const destX  = cx + Math.cos(orbitA) * f.convR;
       const destY  = cy + Math.sin(orbitA) * f.convR;
-
       const x = chaosX + (destX - chaosX) * conv;
       const y = chaosY + (destY - chaosY) * conv;
       fPos.push({ x, y });
-
       const alpha = f.baseAlpha + conv * 0.45;
       const rgb   = f.hue === 22 ? '255,138,61' : '106,140,255';
       const sz    = f.size * (1 - conv * 0.3);
-
-      ctx.font = `600 ${sz}px "JetBrains Mono", monospace`;
-      ctx.fillStyle = `rgba(${rgb},${alpha})`;
+      ctx.font = '600 ' + sz + 'px "JetBrains Mono", monospace';
+      ctx.fillStyle = 'rgba(' + rgb + ',' + alpha + ')';
       ctx.fillText(f.text, x, y);
     }
 
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
 
-    /* --- constellation lines between fragments --- */
+    // Constellation lines
     if (conv > 0.2){
       const lf = (conv - 0.2) / 0.8;
       const maxD = 260 - conv * 140;
@@ -1209,7 +1261,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             ctx.beginPath();
             ctx.moveTo(fPos[i].x, fPos[i].y);
             ctx.lineTo(fPos[j].x, fPos[j].y);
-            ctx.strokeStyle = `rgba(255,94,0,${lf * 0.14 * (1 - d / maxD)})`;
+            ctx.strokeStyle = 'rgba(255,94,0,' + (lf * 0.14 * (1 - d / maxD)) + ')';
             ctx.stroke();
           }
         }
@@ -1219,7 +1271,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     raf = requestAnimationFrame(draw);
   }
 
-  /* ---- Scroll binding ---- */
   function updateScroll(){
     const rect = wrap.getBoundingClientRect();
     const dist = rect.height - window.innerHeight;
@@ -1237,10 +1288,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (foot) foot.classList.toggle('is-shown', progress > 0.80);
   }
 
-  /* ---- Lifecycle ---- */
   if ('IntersectionObserver' in window){
     const io = new IntersectionObserver(([en]) => {
-      if (en.isIntersecting){ cancelAnimationFrame(raf); draw(); }
+      if (en.isIntersecting){ cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }
       else { cancelAnimationFrame(raf); }
     }, { threshold: 0.02 });
     io.observe(wrap);
@@ -1257,24 +1307,21 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     return;
   }
 
-  draw();
+  raf = requestAnimationFrame(draw);
 })();
 
 /* ==============================================================
    RECORDING TOOL: CINEMATIC AUTO-SCROLL
-   Press 'S' to start/stop a very smooth, slow scroll.
-   Perfect for screen recordings for X.
    ============================================================== */
 (function recordingTool() {
   let isScrolling = false;
   let currentPos = window.scrollY;
-  const speed = 3.9; // Adjust for speed. 0.6-0.8 is great for "cinematic" feels.
+  const speed = 3.9;
 
   function step() {
     if (!isScrolling) return;
     currentPos += speed;
     window.scrollTo(0, currentPos);
-
     if (currentPos >= (document.documentElement.scrollHeight - window.innerHeight - 1)) {
       isScrolling = false;
       console.log("Cinematic Scroll: REACHED BOTTOM");
@@ -1284,9 +1331,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   window.addEventListener('keydown', (e) => {
-    // Only trigger if not typing in an input/textarea
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
     if (e.key.toLowerCase() === 's') {
       isScrolling = !isScrolling;
       if (isScrolling) {
@@ -1303,7 +1348,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* ==============================================================
    LENIS SMOOTH SCROLL
    ============================================================== */
-if (typeof Lenis !== 'undefined') {
+if (typeof Lenis !== 'undefined' && !PERF.isLowEnd) {
   const lenis = new Lenis({
     duration: 1.2,
     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
