@@ -40,7 +40,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 (function navScroll(){
   const nav = document.querySelector('.nav');
   if (!nav) return;
-  const upd = () => nav.classList.toggle('is-scrolled', window.scrollY > 30);
+
+  // Show nav immediately with hero styling
+  nav.classList.add('is-hero');
+
+  const upd = () => {
+    nav.classList.toggle('is-scrolled', window.scrollY > 30);
+  };
   upd();
   window.addEventListener('scroll', upd, { passive: true });
 
@@ -49,13 +55,21 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (premise) {
     const check = () => {
       const show = window.scrollY >= premise.offsetTop - window.innerHeight;
-      nav.classList.toggle('is-visible', show);
-      if (heroLogo) heroLogo.classList.toggle('is-hidden', show);
+      // Remove is-hero when we've scrolled well past hero, keep nav visible
+      if (show) {
+        nav.classList.remove('is-hero');
+        nav.classList.add('is-visible');
+      } else {
+        nav.classList.add('is-hero');
+        nav.classList.remove('is-visible');
+      }
+      if (heroLogo) heroLogo.classList.add('is-hidden');
     };
     window.addEventListener('scroll', check, { passive: true });
     check();
   } else {
     nav.classList.add('is-visible');
+    nav.classList.remove('is-hero');
     if (heroLogo) heroLogo.classList.add('is-hidden');
   }
 })();
@@ -152,6 +166,39 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       card.style.setProperty('--my', ((e.clientY - r.top ) / r.height * 100) + '%');
     });
   });
+})();
+
+/* ---------- Hero scroll progress indicator ---------- */
+(function heroProgress(){
+  const wrap = document.querySelector('.hero-wrap');
+  const fill = document.getElementById('heroProgressFill');
+  const ticks = document.querySelectorAll('.hp-ticks span');
+  const indicator = document.querySelector('.hero-progress');
+  if (!wrap || !fill) return;
+
+  const upd = () => {
+    const rect = wrap.getBoundingClientRect();
+    const vh = window.innerHeight;
+    // hero-wrap height minus viewport = total scrollable distance
+    const total = wrap.offsetHeight - vh;
+    const scrolled = Math.max(0, Math.min(total, -rect.top));
+    const pct = total > 0 ? (scrolled / total) * 100 : 0;
+    fill.style.height = pct + '%';
+
+    // Tick activation at 20%, 40%, 60%, 80%, 100%
+    ticks.forEach((t, i) => {
+      t.classList.toggle('is-hit', pct >= (i * 20));
+    });
+
+    // Hide when outside hero
+    if (indicator) {
+      const inHero = rect.top < vh && rect.bottom > 0;
+      indicator.classList.toggle('is-hidden', !inHero);
+    }
+  };
+
+  window.addEventListener('scroll', upd, { passive: true });
+  upd();
 })();
 
 /* ---------- Magnetic buttons ---------- */
@@ -464,7 +511,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     flowParticles = [];
 
     let signalCount = 0;
-    const WORD_COUNT = 300; 
+    const WORD_COUNT = 210; 
     const MAX_SIGNAL = 24; // Limit assembled grid to 3x8 block
 
     // Init Words
@@ -483,8 +530,23 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         signalCount++;
       }
 
-      const startX = Math.random() * W;
-      const startY = Math.random() * H;
+      let startX = Math.random() * W;
+      let startY = Math.random() * H;
+
+      // Protect lower-left quadrant where hero-claim headline sits
+      // The headline is at left: gutter, bottom: 120px, max-width: 640px
+      // We avoid spawning words in the bottom 35% and left 40% of the viewport
+      const protectZone = 0.35; // 35% of words get protected placement
+      if (i < WORD_COUNT * protectZone) {
+        // These words can spawn anywhere EXCEPT the protected zone
+        const paddingX = W * 0.42; // left 42%
+        const paddingY = H * 0.38; // bottom 38%
+        if (startX < paddingX && startY > H - paddingY) {
+          // Re-roll: push to upper-right area
+          startX = paddingX + Math.random() * (W - paddingX);
+          startY = Math.random() * (H - paddingY);
+        }
+      }
 
       words.push({
         text: isSignal ? SIGNAL[Math.floor(Math.random() * SIGNAL.length)] : NOISE[Math.floor(Math.random() * NOISE.length)],
@@ -509,7 +571,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
     // Init Grid Titles
-    for(let i=0; i<40; i++) {
+    for(let i=0; i<28; i++) {
       gridTitles.push({
         text: TITLES[Math.floor(Math.random() * TITLES.length)],
         x: Math.random() * W,
@@ -530,7 +592,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
     // Init Flow Particles (for the background randomized visuals)
-    for(let i=0; i<100; i++) {
+    for(let i=0; i<70; i++) {
       flowParticles.push({
         x: Math.random() * W,
         y: Math.random() * H,
@@ -731,8 +793,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           alpha = 1 - pFilter;
           if (pFilter > 0.8) w.dissolved = true;
         } else {
-          // Pass through and orbit smoothly
-          w.orbA += 0.015;
+          // Pass through and orbit smoothly — decelerate to rest as we approach assemble
+          const orbitSpeed = 0.015 * (1 - Math.pow(Math.max(0, pFilter - 0.65) / 0.35, 2));
+          w.orbA += Math.max(0, orbitSpeed);
           const targetX = cx + Math.cos(w.orbA) * w.orbR;
           const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
           
@@ -750,7 +813,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       // Assemble Phase
       else if (p < 0.55) {
         if (!w.isSignal) { w.dissolved = true; return; }
-        col = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
         
         // Structured Grid Formation (Columns) - Minimal block
         const colW = 180;
@@ -758,15 +820,10 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const totalCols = 3; // Minimal 3 columns
         const startX = cx - (colW * totalCols) / 2 + colW / 2;
         const startY = cy - 120; // Centered
-        
-        // Use smooth lerp to transition from orbit position
-        const orbitX = cx + Math.cos(w.orbA) * w.orbR;
-        const orbitY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
 
-        // If not assigned to grid, dissolve away gracefully
+        // If not assigned to grid, drift up and fade from wherever they are
         if (!w.keepsSlot) {
-           w.x = orbitX;
-           w.y = orbitY - pAssemble * 100;
+           w.y -= 1.5 + pAssemble * 2;
            tx = w.x; ty = w.y;
            alpha = 1 - easeInOutCubic(pAssemble);
            if (pAssemble > 0.8) w.dissolved = true;
@@ -774,12 +831,18 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
            const targetX = startX + w.col * colW;
            const targetY = startY + w.row * rowH;
            
-           w.x = lerp(orbitX, targetX, easeInOutCubic(pAssemble));
-           w.y = lerp(orbitY, targetY, easeInOutCubic(pAssemble));
+           // Lerp from current rest position (orbit has decelerated to near-stop)
+           w.x = lerp(w.x, targetX, easeInOutCubic(pAssemble));
+           w.y = lerp(w.y, targetY, easeInOutCubic(pAssemble));
            
            tx = w.x;
            ty = w.y;
            tz = lerp(100, 0, pAssemble);
+           
+           // Smooth color transition: stay warm while forming, settle into final color
+           const targetCol = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
+           col = pAssemble < 0.35 ? '#FF5E00' : targetCol;
+           font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
            
            // Blue structural lines between columns
            if (pAssemble > 0.5 && w.row === 0) {
@@ -858,9 +921,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     ScrollTrigger.create({
       trigger: '.hero-wrap',
       start: 'top top',
-      end: '+=400%',
+      end: '+=550%',
       pin: '.hero-sticky',
-      scrub: 0.8,
+      scrub: 1.2,
       onUpdate: (self) => {
         rawProgress = self.progress;
       }
@@ -870,8 +933,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       scrollTrigger: {
         trigger: '.hero-wrap',
         start: 'top top',
-        end: '+=400%',
-        scrub: 0.8
+        end: '+=550%',
+        scrub: 1.2
       }
     });
 
@@ -891,16 +954,11 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       );
     });
 
-    tl.to('.hero-scroll',
-      { opacity: 0, duration: 0.04, ease: 'power2.in' },
-      0.03
-    );
-
     if (heroContent){
       tl.fromTo(heroContent,
         { opacity: 0, y: 40 },
         { opacity: 1, y: 0, duration: 0.10, ease: 'power2.out' },
-        0.90
+        0.82
       );
     }
 
@@ -919,20 +977,32 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       el.classList.toggle('is-active', sp >= start && sp < end);
     });
     if (scrollIndicator) scrollIndicator.classList.toggle('is-hidden', sp > 0.03);
-    if (heroContent) heroContent.classList.toggle('is-revealed', sp > 0.90);
+    if (heroContent) heroContent.classList.toggle('is-revealed', sp > 0.82);
   }
 
   if ('IntersectionObserver' in window){
     const io = new IntersectionObserver(([en]) => {
-      if (en.isIntersecting){ cancelAnimationFrame(raf); draw(); }
-      else { cancelAnimationFrame(raf); }
+      if (en.isIntersecting){
+        cancelAnimationFrame(raf);
+        isDrawing = false;
+        lastTime = 0;
+        draw();
+      } else {
+        cancelAnimationFrame(raf);
+        isDrawing = false;
+      }
     }, { threshold: 0.02 });
     io.observe(wrap);
   }
 
   window.addEventListener('resize', resize);
 
+  let started = false;
   function start(){
+    if (started) return;
+    started = true;
+    cancelAnimationFrame(raf);
+    isDrawing = false;
     const r = cv.getBoundingClientRect();
     W = r.width; H = r.height;
     DPR = Math.min(2, window.devicePixelRatio || 1);

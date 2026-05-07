@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://api.fontshare.com" />
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" />
 <link rel="stylesheet" href="styles.css" />
 <noscript>
   <style>
@@ -32,12 +32,7 @@
 <!-- ============ NAV ============ -->
 <header class="nav" aria-label="Primary">
   <a href="#top" class="nav-brand" aria-label="Phantom Post — Home">
-    <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <path d="M20 4c-7.18 0-13 5.82-13 13v15.5c0 1.6 1.85 2.5 3.1 1.5l3.4-2.7 3.4 2.7c.55.45 1.32.45 1.87 0l3.46-2.7 3.46 2.7c.55.45 1.32.45 1.87 0l3.4-2.7 3.4 2.7c1.25 1 3.1.1 3.1-1.5V17c0-7.18-5.82-13-13-13Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-      <circle cx="15.5" cy="17.5" r="1.6" fill="currentColor"/>
-      <circle cx="24.5" cy="17.5" r="1.6" fill="currentColor"/>
-    </svg>
-    <span class="brand-word">Phantom<em>Post</em></span>
+    <img class="nav-logo" src="assets/logo.png" alt="Phantom Post" width="200" height="55" />
   </a>
   <nav class="nav-links" aria-label="Sections">
     <a href="#premise"><span>01</span> Premise</a>
@@ -47,7 +42,7 @@
     <a href="#proof"><span>05</span> Proof</a>
     <a href="#contact"><span>06</span> Contact</a>
   </nav>
-  <a href="#contact" class="nav-cta" data-magnetic>
+  <a href="https://calendly.com" target="_blank" rel="noopener" class="nav-cta" data-magnetic>
     <span class="cta-label">Book Signal Session</span>
     <span class="cta-arrow" aria-hidden="true">
       <svg viewBox="0 0 14 14" fill="none"><path d="M3 11L11 3M11 3H5M11 3V9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -63,27 +58,56 @@
     <div class="hero-logo-wrap">
       <img class="hero-logo" src="assets/logo.png" alt="Phantom Post" width="200" height="55" />
     </div>
+    <div class="hero-frame" aria-hidden="true">
+      <div class="hf-bracket hf-tl"></div>
+      <div class="hf-bracket hf-tr"></div>
+      <div class="hf-bracket hf-bl"></div>
+      <div class="hf-bracket hf-br"></div>
+    </div>
     <canvas id="flow-canvas" aria-hidden="true"></canvas>
     <canvas id="storm-canvas" aria-hidden="true"></canvas>
+    <div class="hero-noise" aria-hidden="true"></div>
 
     <!-- Phase overlay lines (one per narrative beat) -->
     <div class="storm-overlay" data-phase="0">
+      <span class="so-phase">01</span>
       <span class="so-line">Most founder voices are accidental.</span>
     </div>
     <div class="storm-overlay" data-phase="1">
+      <span class="so-phase">02</span>
       <span class="so-line">We separate signal from noise.</span>
     </div>
     <div class="storm-overlay" data-phase="2">
+      <span class="so-phase">03</span>
       <span class="so-line">We build the machine around your voice.</span>
     </div>
     <div class="storm-overlay" data-phase="3">
+      <span class="so-phase">04</span>
       <span class="so-line">The machine ships. You think.</span>
     </div>
     <div class="storm-overlay storm-overlay-final" data-phase="4">
+      <span class="so-phase">05</span>
       <span class="so-line so-final">
         <span class="sf-line">"Phantom Post. The</span>
         <span class="sf-line">invisible machine."</span>
       </span>
+    </div>
+
+    <div class="hero-rail hero-rail-left" aria-hidden="true">
+      <span class="hrl-line">PHANTOM POST</span>
+      <span class="hrl-line">REPUTATION INFRASTRUCTURE</span>
+      <span class="hrl-line hrl-fade">NYC · LDN · SF</span>
+    </div>
+    <div class="hero-rail hero-rail-right" aria-hidden="true">
+      <div class="hrr-head">
+        <i class="dot live"></i>
+        <span>11 ACTIVE</span>
+      </div>
+      <div class="hrr-body">
+        <span>3 timezones</span>
+        <span>From $14k/mo</span>
+        <span>100% retention</span>
+      </div>
     </div>
 
     <!-- Hero content revealed at end of scroll -->
@@ -106,13 +130,13 @@
           engineering reputation as <em>infrastructure</em>, not content.
         </p>
         <div class="hero-actions">
-          <a href="#contact" class="btn btn-primary" data-magnetic>
-            <span>Map Your Signal</span>
+          <a href="https://calendly.com" target="_blank" rel="noopener" class="btn btn-primary" data-magnetic>
+            <span>Begin Your Enquiry</span>
             <svg viewBox="0 0 16 16" fill="none"><path d="M3 13L13 3M13 3H6M13 3V10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
           <a href="#process" class="btn btn-ghost">
             <span class="btn-dot"></span>
-            <span>How it works</span>
+            <span>See the Process</span>
           </a>
         </div>
       </div>
@@ -133,9 +157,29 @@
       </div>
     </div>
 
-    <div class="hero-scroll" aria-hidden="true">
-      <span>SCROLL</span>
-      <svg viewBox="0 0 12 24" fill="none"><path d="M6 1v22M2 19l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="hero-trust" aria-hidden="true">
+      <span>Trusted by founders at</span>
+      <span class="ht-names">Sequoia · YC · A16Z · Paradigm · Bessemer</span>
+    </div>
+    <div class="hero-preview-bar" aria-hidden="true">
+      <div class="hpb-inner">
+        <span class="hpb-stat"><b>77%</b> of founder reputations are accidental, not authored.</span>
+        <span class="hpb-dot">·</span>
+        <span class="hpb-stat"><b>82%</b> of investors evaluate the founder's voice before the deck.</span>
+        <span class="hpb-dot">·</span>
+        <span class="hpb-stat"><b>3mo</b> average for measurable inbound to compound.</span>
+      </div>
+    </div>
+    <div class="hero-progress" aria-hidden="true">
+      <div class="hp-track"></div>
+      <div class="hp-fill" id="heroProgressFill"></div>
+      <div class="hp-ticks">
+        <span data-tick="0"></span>
+        <span data-tick="1"></span>
+        <span data-tick="2"></span>
+        <span data-tick="3"></span>
+        <span data-tick="4"></span>
+      </div>
     </div>
   </div>
 </section>
