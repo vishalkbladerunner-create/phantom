@@ -1019,6 +1019,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined'){
     gsap.registerPlugin(ScrollTrigger);
 
+    const heroSticky = document.querySelector('.hero-sticky');
     ScrollTrigger.create({
       trigger: '.hero-wrap',
       start: 'top top',
@@ -1029,6 +1030,13 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       invalidateOnRefresh: true,
       onUpdate: (self) => {
         rawProgress = self.progress;
+        const revealed = self.progress > 0.80;
+        if (heroContent) {
+          heroContent.classList.toggle('is-revealed', revealed);
+        }
+        if (heroSticky) {
+          heroSticky.classList.toggle('has-revealed', revealed);
+        }
       }
     });
 

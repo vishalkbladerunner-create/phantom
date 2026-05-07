@@ -1,1 +1,19 @@
-styles.css.bak
+# macOS
+.DS_Store
+
+# Backup files
+*.bak
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Experiments directory (not part of live site)
+experiments/
+
+# Test screenshots and recordings
+hero-*.png
+REC-*.mp4
+
+# IDE
+.vscode/
+.idea/
