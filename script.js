@@ -530,8 +530,14 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         signalCount++;
       }
 
-      let startX = Math.random() * W;
-      let startY = Math.random() * H;
+      // Safe zones keep words away from UI chrome (rails, nav, brackets)
+      const SAFE_LEFT   = 60;
+      const SAFE_RIGHT  = 200;
+      const SAFE_TOP    = 80;
+      const SAFE_BOTTOM = 130;
+      
+      let startX = SAFE_LEFT + Math.random() * (W - SAFE_LEFT - SAFE_RIGHT);
+      let startY = SAFE_TOP + Math.random() * (H - SAFE_TOP - SAFE_BOTTOM);
 
       // Protect lower-left quadrant where hero-claim headline sits
       // The headline is at left: gutter, bottom: 120px, max-width: 640px
@@ -543,8 +549,8 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const paddingY = H * 0.38; // bottom 38%
         if (startX < paddingX && startY > H - paddingY) {
           // Re-roll: push to upper-right area
-          startX = paddingX + Math.random() * (W - paddingX);
-          startY = Math.random() * (H - paddingY);
+          startX = Math.max(SAFE_LEFT, paddingX) + Math.random() * (W - Math.max(SAFE_LEFT, paddingX) - SAFE_RIGHT);
+          startY = SAFE_TOP + Math.random() * (Math.min(H - paddingY, H - SAFE_BOTTOM) - SAFE_TOP);
         }
       }
 
@@ -569,12 +575,16 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       });
     }
 
-    // Init Grid Titles
+    // Init Grid Titles (spawn within safe zone)
+    const SAFE_LEFT   = 60;
+    const SAFE_RIGHT  = 200;
+    const SAFE_TOP    = 80;
+    const SAFE_BOTTOM = 130;
     for(let i=0; i<28; i++) {
       gridTitles.push({
         text: TITLES[Math.floor(Math.random() * TITLES.length)],
-        x: Math.random() * W,
-        y: Math.random() * H,
+        x: SAFE_LEFT + Math.random() * (W - SAFE_LEFT - SAFE_RIGHT),
+        y: SAFE_TOP + Math.random() * (H - SAFE_TOP - SAFE_BOTTOM),
         alpha: 0,
         connections: []
       });
