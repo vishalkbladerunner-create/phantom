@@ -561,7 +561,6 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         vy: 0,
         baseSize: isSignal ? 16 + Math.random()*5 : 14 + Math.random()*4,
         alpha: 0,
-        dissolved: false,
         orbA: Math.random() * TAU,
         orbR: 150 + Math.random() * 250,
         col: col,
@@ -624,6 +623,121 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function easeInOutCubic(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
 
+  const PHASES = {
+    chaos:    { start: 0.00, end: 0.22, peak: 0.10 },
+    filter:   { start: 0.12, end: 0.42, peak: 0.27 },
+    assemble: { start: 0.32, end: 0.62, peak: 0.47 },
+    output:   { start: 0.52, end: 0.92, peak: 0.72 },
+    fade:     { start: 0.85, end: 1.00, peak: 0.93 }
+  };
+
+  function phaseWeight(p, phase) {
+    const { start, end, peak } = PHASES[phase];
+    if (p < start || p > end) return 0;
+    if (p < peak) return (p - start) / (peak - start);
+    return 1 - (p - peak) / (end - peak);
+  }
+
+  function getChaosTarget(w, time) {
+    return {
+      x: w.x,
+      y: w.y,
+      z: w.z,
+      alpha: 0.6 + 0.4 * Math.sin(time * 2 + w.idx),
+      scale: 1,
+      shadow: 0
+    };
+  }
+
+  function getFilterTarget(w, wFilter, cx, cy, pFilterLocal) {
+    if (!w.isSignal) {
+      const dx = w.x - cx;
+      const dy = w.y - cy;
+      const dist = Math.sqrt(dx*dx + dy*dy) + 0.001;
+      return {
+        x: w.x + (dx / dist) * 100 * wFilter,
+        y: w.y + (dy / dist) * 100 * wFilter,
+        z: w.z,
+        alpha: Math.max(0, 1 - wFilter * 1.5),
+        scale: 1,
+        shadow: 0
+      };
+    } else {
+      if (wFilter > 0) {
+        const orbitSpeed = 0.015 * (1 - pFilterLocal);
+        w.orbA += Math.max(0, orbitSpeed);
+      }
+      const targetX = cx + Math.cos(w.orbA) * w.orbR;
+      const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
+      return {
+        x: targetX,
+        y: targetY,
+        z: 100,
+        alpha: Math.min(1, 0.4 + wFilter),
+        scale: 1,
+        shadow: 12
+      };
+    }
+  }
+
+  function getAssembleTarget(w, wAssemble, startX, startY, colW, rowH) {
+    if (!w.isSignal || !w.keepsSlot) {
+      return {
+        x: w.x,
+        y: w.y - 60 * wAssemble,
+        z: w.z,
+        alpha: Math.max(0, 1 - wAssemble * 1.2),
+        scale: 1,
+        shadow: 0
+      };
+    } else {
+      const targetX = startX + w.col * colW;
+      const targetY = startY + w.row * rowH;
+      return {
+        x: targetX,
+        y: targetY,
+        z: 100 * (1 - wAssemble),
+        alpha: 1,
+        scale: 1,
+        shadow: 12
+      };
+    }
+  }
+
+  function getOutputTarget(w, wOutput, startX, startY, colW, rowH) {
+    if (!w.isSignal || !w.keepsSlot) {
+      return {
+        x: w.x,
+        y: w.y,
+        z: w.z,
+        alpha: 0,
+        scale: 1,
+        shadow: 0
+      };
+    }
+    const targetX = startX + w.col * colW;
+    const targetY = startY + w.row * rowH;
+    return {
+      x: targetX,
+      y: targetY - wOutput * 420,
+      z: 0,
+      alpha: Math.max(0, 1 - wOutput * 1.45),
+      scale: 1,
+      shadow: 12
+    };
+  }
+
+  function getFadeTarget(w) {
+    return {
+      x: w.x,
+      y: w.y,
+      z: w.z,
+      alpha: 0,
+      scale: 1,
+      shadow: 0
+    };
+  }
+
   function draw(now) {
     isDrawing = true;
     const t = now || performance.now();
@@ -642,13 +756,18 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cx = W / 2;
     const cy = H / 2;
 
-    // Phases
-    const pChaos = Math.max(0, Math.min(1, p / 0.15)); // 0-15%
-    const pFilter = Math.max(0, Math.min(1, (p - 0.15) / 0.20)); // 15-35%
-    const pAssemble = Math.max(0, Math.min(1, (p - 0.35) / 0.20)); // 35-55%
-    const pOutput = Math.max(0, Math.min(1, (p - 0.55) / 0.20)); // 55-75%
-    const pNetwork = Math.max(0, Math.min(1, (p - 0.75) / 0.20)); // 75-95%
-    const pFade = Math.max(0, Math.min(1, (p - 0.95) / 0.05)); // 95-100%
+    // Weighted phase overlap system
+    const wChaos    = phaseWeight(p, 'chaos');
+    const wFilter   = phaseWeight(p, 'filter');
+    const wAssemble = phaseWeight(p, 'assemble');
+    const wOutput   = phaseWeight(p, 'output');
+    const wFade     = phaseWeight(p, 'fade');
+
+    // Legacy normalized progress for overlay sections that need them
+    const pOutput  = Math.max(0, Math.min(1, (p - 0.55) / 0.20));
+    const pNetwork = Math.max(0, Math.min(1, (p - 0.75) / 0.20));
+    const pFade    = Math.max(0, Math.min(1, (p - 0.95) / 0.05));
+    const pFilterLocal = Math.max(0, Math.min(1, (p - 0.12) / 0.30));
 
     // Vignette
     const outer = Math.max(W, H) * 0.95;
@@ -726,54 +845,87 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Reset dissolved words when returning to the chaos phase
-    if (p < 0.15) {
-      words.forEach(w => { w.dissolved = false; });
-    }
-
     // Sort words by z for 3D effect
     words.sort((a, b) => b.z - a.z);
 
+    // Grid constants for assemble/output targets
+    const colW = 180;
+    const rowH = 36;
+    const totalCols = 3;
+    const startX = cx - (colW * totalCols) / 2 + colW / 2;
+    const startY = cy - 120;
+
     words.forEach((w) => {
-      if (w.dissolved) return;
+      // Compute all phase targets
+      const tChaos    = getChaosTarget(w, time);
+      const tFilter   = getFilterTarget(w, wFilter, cx, cy, pFilterLocal);
+      const tAssemble = getAssembleTarget(w, wAssemble, startX, startY, colW, rowH);
+      const tOutput   = getOutputTarget(w, wOutput, startX, startY, colW, rowH);
+      const tFade     = getFadeTarget(w);
 
-      let tx = w.x, ty = w.y, tz = w.z;
-      let alpha = 1;
-      let col = w.isSignal ? '#A0A0B5' : '#6A6A85';
-      let font = `400 ${w.baseSize}px "Satoshi", sans-serif`;
-
-      // Chaos Phase
-      if (p < 0.15) {
-        // Anchor spring (keeps them loosely around their start point)
-        w.vx += (w.ox - w.x) * 0.001;
-        w.vy += (w.oy - w.y) * 0.001;
-
-        // Gentle ambient drifting
-        w.vx += Math.sin(time * 0.5 + w.idx) * 0.02;
-        w.vy += Math.cos(time * 0.4 + w.idx) * 0.02;
-
-        // Mouse fluid sweep
+      // Weighted blend
+      let bx=0, by=0, bz=0, ba=0, bscale=0, bshadow=0;
+      let totalWeight = 0;
+      
+      const targets = [
+        { w: wChaos,    t: tChaos },
+        { w: wFilter,   t: tFilter },
+        { w: wAssemble, t: tAssemble },
+        { w: wOutput,   t: tOutput },
+        { w: wFade,     t: tFade }
+      ];
+      
+      targets.forEach(({w: weight, t}) => {
+        if (weight <= 0) return;
+        bx += t.x * weight; by += t.y * weight;
+        bz += t.z * weight; ba += t.alpha * weight;
+        bscale += t.scale * weight; bshadow += t.shadow * weight;
+        totalWeight += weight;
+      });
+      
+      if (totalWeight > 0) {
+        bx /= totalWeight; by /= totalWeight; bz /= totalWeight;
+        ba /= totalWeight; bscale /= totalWeight; bshadow /= totalWeight;
+      }
+      
+      // Spring toward blended target
+      const spring = 0.12;
+      w.x += (bx - w.x) * spring;
+      w.y += (by - w.y) * spring;
+      w.z += (bz - w.z) * spring;
+      
+      // Chaos physics every frame (modulated by chaos weight)
+      if (wChaos > 0) {
+        w.vx += (w.ox - w.x) * 0.001 * wChaos;
+        w.vy += (w.oy - w.y) * 0.001 * wChaos;
+        w.vx += Math.sin(time * 0.5 + w.idx) * 0.02 * wChaos;
+        w.vy += Math.cos(time * 0.4 + w.idx) * 0.02 * wChaos;
         if (mouse.active) {
-          let dx = w.x - mouse.x;
-          let dy = w.y - mouse.y;
+          let dx = w.x - mouse.x, dy = w.y - mouse.y;
           let dist = Math.sqrt(dx*dx + dy*dy);
           if (dist < 250) {
             let force = (250 - dist) / 250;
-            w.vx += (mouse.vx * 0.015 + (dx/dist) * 0.4) * force;
-            w.vy += (mouse.vy * 0.015 + (dy/dist) * 0.4) * force;
+            w.vx += (mouse.vx * 0.015 + (dx/dist) * 0.4) * force * wChaos;
+            w.vy += (mouse.vy * 0.015 + (dy/dist) * 0.4) * force * wChaos;
           }
         }
+      }
+      w.vx *= 0.94;
+      w.vy *= 0.94;
+      
+      // Add velocity influence
+      w.x += w.vx * 0.5;
+      w.y += w.vy * 0.5;
 
-        w.vx *= 0.94; // Friction
-        w.vy *= 0.94;
-        w.x += w.vx;
-        w.y += w.vy;
+      // Determine dominant phase for color and styling
+      let dominant = 'chaos', domWeight = wChaos;
+      if (wFilter > domWeight) { dominant = 'filter'; domWeight = wFilter; }
+      if (wAssemble > domWeight) { dominant = 'assemble'; domWeight = wAssemble; }
+      if (wOutput > domWeight) { dominant = 'output'; domWeight = wOutput; }
 
-        tx = w.x; 
-        ty = w.y;
-        alpha = 0.6 + 0.4 * Math.sin(time*2 + w.idx);
-        
-        // Signal words turn orange; noise words stay bright white
+      let col, font, shadow;
+
+      if (dominant === 'chaos') {
         if (w.isSignal) {
           col = '#FF5E00';
           font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
@@ -781,121 +933,53 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           col = '#B8B8CC';
           font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
         }
-      } 
-      // Filter Phase
-      else if (p < 0.35) {
-        if (!w.isSignal) {
-          // Noise words drift away outward and dissolve gently
-          w.vx += (w.x - cx) * 0.0005;
-          w.vy += (w.y - cy) * 0.0005;
-          w.x += w.vx;
-          w.y += w.vy;
-          alpha = 1 - pFilter;
-          if (pFilter > 0.8) w.dissolved = true;
-        } else {
-          // Pass through and orbit smoothly — decelerate to rest as we approach assemble
-          const orbitSpeed = 0.015 * (1 - Math.pow(Math.max(0, pFilter - 0.65) / 0.35, 2));
-          w.orbA += Math.max(0, orbitSpeed);
-          const targetX = cx + Math.cos(w.orbA) * w.orbR;
-          const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
-          
-          w.x = lerp(w.x, targetX, easeInOutCubic(pFilter));
-          w.y = lerp(w.y, targetY, easeInOutCubic(pFilter));
-          
-          tx = w.x;
-          ty = w.y;
-          tz = 100;
+        shadow = 0;
+      } else if (dominant === 'filter') {
+        if (w.isSignal) {
           col = '#FF5E00';
-          alpha = Math.min(1, 0.4 + pFilter);
           font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-        }
-      }
-      // Assemble Phase
-      else if (p < 0.55) {
-        if (!w.isSignal) { w.dissolved = true; return; }
-        
-        // Structured Grid Formation (Columns) - Minimal block
-        const colW = 180;
-        const rowH = 36;
-        const totalCols = 3; // Minimal 3 columns
-        const startX = cx - (colW * totalCols) / 2 + colW / 2;
-        const startY = cy - 120; // Centered
-
-        // If not assigned to grid, drift up and fade from wherever they are
-        if (!w.keepsSlot) {
-           w.y -= 1.5 + pAssemble * 2;
-           tx = w.x; ty = w.y;
-           alpha = 1 - easeInOutCubic(pAssemble);
-           if (pAssemble > 0.8) w.dissolved = true;
+          shadow = 12;
         } else {
-           const targetX = startX + w.col * colW;
-           const targetY = startY + w.row * rowH;
-           
-           // Lerp from current rest position (orbit has decelerated to near-stop)
-           w.x = lerp(w.x, targetX, easeInOutCubic(pAssemble));
-           w.y = lerp(w.y, targetY, easeInOutCubic(pAssemble));
-           
-           tx = w.x;
-           ty = w.y;
-           tz = lerp(100, 0, pAssemble);
-           
-           // Smooth color transition: stay warm while forming, settle into final color
-           const targetCol = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
-           col = pAssemble < 0.35 ? '#FF5E00' : targetCol;
-           font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-           
-           // Blue structural lines between columns
-           if (pAssemble > 0.5 && w.row === 0) {
-             ctx.beginPath();
-             ctx.moveTo(targetX - colW/2 + 20, cy - 140);
-             ctx.lineTo(targetX - colW/2 + 20, cy + 140);
-             ctx.strokeStyle = `rgba(26,106,255,${(pAssemble-0.5)*2 * 0.4})`;
-             ctx.lineWidth = 1;
-             ctx.stroke();
-           }
+          col = '#B8B8CC';
+          font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
+          shadow = 0;
         }
-      }
-      // Output & Network Phase
-      else if (p < 0.95) {
-        if (!w.isSignal || !w.keepsSlot) { w.dissolved = true; return; }
+      } else if (dominant === 'assemble') {
+        if (w.keepsSlot && w.col === 1) {
+          const tCol = Math.max(0, Math.min(1, (wAssemble - 0.20) / 0.45));
+          const r = Math.round(255 + (26 - 255) * tCol);
+          const g = Math.round(94 + (106 - 94) * tCol);
+          const b = Math.round(0 + (255 - 0) * tCol);
+          col = `rgb(${r},${g},${b})`;
+        } else {
+          col = '#FF5E00';
+        }
+        font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
+        shadow = 12;
+      } else if (dominant === 'output') {
         col = (w.col === 1) ? '#1A6AFF' : '#FF5E00';
         font = `600 ${w.baseSize}px "Satoshi", sans-serif`;
-        
-        const colW = 180;
-        const rowH = 36;
-        const totalCols = 3;
-        const startX = cx - (colW * totalCols) / 2 + colW / 2;
-        const startY = cy - 120;
-        
-        const targetX = startX + w.col * colW;
-        const targetY = startY + w.row * rowH;
-        
-        // Fly upwards and fade out faster to clear the center for the final overlay
-        tz = 0;
-        tx = targetX;
-        ty = targetY - pOutput * 420;
-        alpha = Math.max(0, 1 - pOutput * 1.45);
-        if (alpha <= 0) w.dissolved = true;
-      }
-      // Fade
-      else {
-        alpha = 0;
+        shadow = 12;
+      } else {
+        col = '#B8B8CC';
+        font = `400 ${w.baseSize}px "Satoshi", sans-serif`;
+        shadow = 0;
       }
 
-      if (alpha > 0 && !w.dissolved) {
-        // Simple Perspective
-        const scale = 500 / (500 + Math.max(0, tz));
+      // Render
+      if (ba > 0.001) {
+        const scale = 500 / (500 + Math.max(0, bz));
         if (scale > 0 && scale < 10) {
-          ctx.globalAlpha = alpha * Math.min(1, scale);
+          ctx.globalAlpha = ba * Math.min(1, scale);
           ctx.font = font;
           ctx.fillStyle = col;
           ctx.save();
-          ctx.translate(tx, ty);
+          ctx.translate(w.x, w.y);
           ctx.scale(scale, scale);
           
-          if (w.isSignal && p > 0.15 && p < 0.95) {
+          if (w.isSignal && domWeight > 0 && dominant !== 'chaos') {
             ctx.shadowColor = 'rgba(255,94,0,0.4)';
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = shadow || 12;
           }
           
           ctx.fillText(w.text, 0, 0);
@@ -903,6 +987,19 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         }
       }
     });
+
+    // Blue structural lines between columns (assemble phase)
+    if (wAssemble > 0.5) {
+      for (let c = 0; c < totalCols; c++) {
+        const lineX = startX + c * colW - colW/2 + 20;
+        ctx.beginPath();
+        ctx.moveTo(lineX, cy - 140);
+        ctx.lineTo(lineX, cy + 140);
+        ctx.strokeStyle = `rgba(26,106,255,${(wAssemble - 0.5) * 2 * 0.4})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
 
     updateFallbackUI(p);
 
@@ -923,7 +1020,9 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       start: 'top top',
       end: '+=550%',
       pin: '.hero-sticky',
-      scrub: 1.2,
+      scrub: 0.8,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
       onUpdate: (self) => {
         rawProgress = self.progress;
       }
@@ -934,7 +1033,7 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         trigger: '.hero-wrap',
         start: 'top top',
         end: '+=550%',
-        scrub: 1.2
+        scrub: 0.8
       }
     });
 
@@ -1340,3 +1439,17 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
   });
 })();
+
+/* ==============================================================
+   LENIS SMOOTH SCROLL
+   ============================================================== */
+if (typeof Lenis !== 'undefined') {
+  const lenis = new Lenis({
+    duration: 1.2,
+    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    smoothWheel: true
+  });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add((time) => lenis.raf(time * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
