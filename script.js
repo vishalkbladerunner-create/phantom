@@ -72,7 +72,9 @@ window.addEventListener('pagehide', () => {
 /* ---------- GSAP Global Setup ---------- */
 if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger);
-  ScrollTrigger.normalizeScroll(true);
+  if (PERF.isMobile || PERF.isLowEnd) {
+    ScrollTrigger.normalizeScroll(true);
+  }
 }
 
 /* ---------- Filed date in hero side rail ---------- */
@@ -131,9 +133,10 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
 
   const premise = document.getElementById('premise');
   const heroLogo = document.querySelector('.hero-logo-wrap');
+  let premiseTop = premise ? premise.offsetTop : 0;
   if (premise) {
     const check = () => {
-      const show = window.scrollY >= premise.offsetTop - window.innerHeight;
+      const show = window.scrollY >= premiseTop - window.innerHeight;
       if (show) {
         nav.classList.remove('is-hero');
         nav.classList.add('is-visible');
@@ -144,6 +147,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
       if (heroLogo) heroLogo.classList.add('is-hidden');
     };
     window.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', () => { premiseTop = premise.offsetTop; });
     check();
   } else {
     nav.classList.add('is-visible');
@@ -569,6 +573,11 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   const upd = () => {
     const rect = wrap.getBoundingClientRect();
     const vh = window.innerHeight;
+    const inHero = rect.top < vh && rect.bottom > 0;
+    if (indicator) {
+      indicator.classList.toggle('is-hidden', !inHero);
+    }
+    if (!inHero) return;
     const total = wrap.offsetHeight - vh;
     const scrolled = Math.max(0, Math.min(total, -rect.top));
     const pct = total > 0 ? (scrolled / total) * 100 : 0;
@@ -576,10 +585,6 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     ticks.forEach((t, i) => {
       t.classList.toggle('is-hit', pct >= (i * 20));
     });
-    if (indicator) {
-      const inHero = rect.top < vh && rect.bottom > 0;
-      indicator.classList.toggle('is-hidden', !inHero);
-    }
   };
 
   window.addEventListener('scroll', upd, { passive: true });
@@ -751,11 +756,16 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   let t = 0;
   let raf;
   let lastFrame = 0;
+  const heroContent = document.getElementById('heroContent');
 
   const step = (now) => {
     if (!DOC_VISIBLE) { raf = requestAnimationFrame(step); return; }
-    // Skip every other frame on low-end devices for 30fps cap
-    if (PERF.tier === 'low' && (now - lastFrame) < 32) { raf = requestAnimationFrame(step); return; }
+
+    // Pause background when hero content is revealed (storm canvas has faded)
+    if (heroContent && heroContent.classList.contains('is-revealed')) {
+      raf = requestAnimationFrame(step);
+      return;
+    }
     lastFrame = now;
 
     ctx.fillStyle = '#050810';
@@ -1017,10 +1027,12 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   let frameSkip = 0;
   function draw(now) {
     if (!DOC_VISIBLE) { raf = requestAnimationFrame(draw); return; }
-    // Frame skip for low-end: cap at 30fps
-    if (PERF.tier === 'low') {
-      frameSkip = (frameSkip + 1) % 2;
-      if (frameSkip === 1) { raf = requestAnimationFrame(draw); return; }
+
+
+    // Skip heavy rendering when storm has fully faded out
+    if (smoothProgress >= 0.96) {
+      raf = requestAnimationFrame(draw);
+      return;
     }
 
     isDrawing = true;
@@ -1462,7 +1474,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
 
   function draw(now){
     if (!DOC_VISIBLE) { raf = requestAnimationFrame(draw); return; }
-    if (PERF.tier === 'low' && (now - lastFrame) < 32) { raf = requestAnimationFrame(draw); return; }
+
     lastFrame = now;
 
     ctx.clearRect(0, 0, W, H);
