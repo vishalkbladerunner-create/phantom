@@ -69,6 +69,12 @@ window.addEventListener('pagehide', () => {
   });
 });
 
+/* ---------- GSAP Global Setup ---------- */
+if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger);
+  ScrollTrigger.normalizeScroll(true);
+}
+
 /* ---------- Filed date in hero side rail ---------- */
 (function filedDate(){
   const el = document.getElementById('filedDate');
@@ -269,9 +275,7 @@ window.addEventListener('pagehide', () => {
         end: '+=140%',
         scrub: 0.5,
         pin: true,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onRefresh: setupRepLetters
+        anticipatePin: 1
       }
     });
 
