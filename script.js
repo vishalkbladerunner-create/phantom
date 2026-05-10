@@ -1313,12 +1313,6 @@ window.addEventListener('pagehide', () => {
     gsap.registerPlugin(ScrollTrigger);
 
     const heroSticky = document.querySelector('.hero-sticky');
-    if (PERF.isMobile) {
-      if (heroContent) heroContent.classList.add('is-revealed');
-      if (heroSticky) heroSticky.classList.add('has-revealed');
-      overlays.forEach(el => { el.style.opacity = '0'; el.style.display = 'none'; });
-      return;
-    }
     ScrollTrigger.create({
       trigger: '.hero-wrap',
       start: 'top top',
@@ -1441,11 +1435,7 @@ window.addEventListener('pagehide', () => {
   const fillBar  = document.getElementById('horizonFill');
   const foot     = wrap.querySelector('.horizon-foot');
 
-  if (PERF.isMobile) {
-    acts.forEach(a => a.classList.add('is-active'));
-    if (foot) foot.classList.add('is-shown');
-    return;
-  }
+  // Mobile scroll-driven animations are enabled — canvas and acts animate normally
 
   const ctx      = cv.getContext('2d', { alpha: true });
   const DPR      = PERF.dpr;
