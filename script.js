@@ -19,15 +19,24 @@ const PERF = (() => {
     isMobile,
     isLowEnd,
     dpr: isHighEnd ? Math.min(1.5, window.devicePixelRatio || 1) : isMobile ? 1 : Math.min(1.25, window.devicePixelRatio || 1),
-    flowParticles: isHighEnd ? 180 : isMobile ? 50 : 100,
-    stormWords: isHighEnd ? 360 : isMobile ? 70 : 180,
+    flowParticles: isHighEnd ? 180 : isMobile ? 30 : 100,
+    stormWords: isHighEnd ? 360 : isMobile ? 40 : 180,
     stormGridTitles: isHighEnd ? 14 : isMobile ? 0 : 8,
     stormFlowParticles: isHighEnd ? 30 : isMobile ? 0 : 16,
-    horizonParticles: isHighEnd ? 80 : isMobile ? 25 : 50,
+    horizonParticles: isHighEnd ? 80 : isMobile ? 18 : 50,
     disableShadows: tier !== 'high',
-    disableMouse: isMobile
+    disableMouse: isMobile,
+    useCanvas: !(isMobile && isLowEnd)
   };
 })();
+
+window.addEventListener('pagehide', () => {
+  document.querySelectorAll('canvas').forEach(cv => {
+    cv.width = 1; cv.height = 1;
+    const ctx = cv.getContext('2d');
+    ctx && ctx.clearRect(0, 0, 1, 1);
+  });
+});
 
 /* ---------- Visibility State Helper ---------- */
 let DOC_VISIBLE = true;
@@ -50,6 +59,15 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
   else window.addEventListener('load', done);
   setTimeout(done, 2400);
 })();
+
+/* ---------- Canvas memory release on page hide ---------- */
+window.addEventListener('pagehide', () => {
+  document.querySelectorAll('canvas').forEach(cv => {
+    cv.width = 1; cv.height = 1;
+    const ctx = cv.getContext('2d');
+    ctx && ctx.clearRect(0, 0, 1, 1);
+  });
+});
 
 /* ---------- Filed date in hero side rail ---------- */
 (function filedDate(){
@@ -146,19 +164,321 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
   els.forEach(el => io.observe(el));
 })();
 
-/* ---------- Manifesto in-view ---------- */
-(function manifestoView(){
+/* ---------- Manifesto scroll-driven handwriting + strike ---------- */
+(function manifestoScrollScrub(){
   const sec = document.querySelector('.manifesto');
-  if (!sec || !('IntersectionObserver' in window)) return;
-  const io = new IntersectionObserver(([en]) => {
-    if (en.isIntersecting) { sec.classList.add('is-in-view'); io.disconnect(); }
-  }, { threshold: 0.35 });
-  io.observe(sec);
+  if (!sec || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+  // Ensure ScrollTrigger is registered (idempotent)
+  if (gsap.registerPlugin) gsap.registerPlugin(ScrollTrigger);
+
+  const strikeLine = sec.querySelector('.strike-line');
+  const strikeWord = sec.querySelector('.strike-text');
+  const strikeEl = sec.querySelector('.strike');
+  const repSvg = sec.querySelector('.rep-strokes');
+  const repLetters = sec.querySelectorAll('.rep-letter');
+  if (!strikeLine || !strikeWord || !strikeEl || !repSvg || !repLetters.length) return;
+
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Generous stroke length that safely exceeds any glyph outline at this size
+  const SAFE_STROKE_LEN = 800;
+
+  // Measure font metrics and position SVG letters
+  function setupRepLetters() {
+    const strikeStyle = getComputedStyle(strikeWord);
+    const fontSize = parseFloat(strikeStyle.fontSize);
+    const lineHeight = parseFloat(getComputedStyle(strikeEl).lineHeight) || fontSize;
+    const repFont = 'italic 400 ' + strikeStyle.fontSize + ' "Instrument Serif", serif';
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = repFont;
+
+    // Measure ascent/descent using tall characters
+    const metrics = ctx.measureText('Xp');
+    const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.72;
+    const descent = metrics.actualBoundingBoxDescent || fontSize * 0.28;
+
+    // The SVG text baseline should align with the HTML text baseline.
+    // In a line box, baseline from top = (lineHeight - fontSize)/2 + ascent
+    const svgH = strikeWord.offsetHeight || Math.round(lineHeight);
+    const baselineY = Math.round((svgH - fontSize) / 2 + ascent);
+
+    // Position each letter using measured widths
+    const strikePad = parseFloat(getComputedStyle(strikeEl).paddingLeft) || 0;
+    let x = strikePad;
+    let totalW = strikePad;
+    repLetters.forEach((textEl) => {
+      const letter = textEl.textContent;
+      const w = ctx.measureText(letter).width;
+      textEl.setAttribute('x', x.toFixed(2));
+      textEl.setAttribute('y', baselineY);
+      textEl.setAttribute('dominant-baseline', 'alphabetic');
+      textEl.style.fontSize = strikeStyle.fontSize;
+      textEl.style.strokeDasharray = String(SAFE_STROKE_LEN);
+      textEl.style.strokeDashoffset = String(SAFE_STROKE_LEN);
+      textEl.dataset.length = String(SAFE_STROKE_LEN);
+      x += w;
+      totalW += w;
+    });
+    totalW += strikePad;
+
+    // Size SVG to fit the reputation letters; let it overflow the strike element naturally
+    const repW = Math.ceil(totalW);
+    const markW = strikeWord.offsetWidth;
+    // Shift reputation right so it sits centered over where marketing was
+    const offsetX = Math.max(0, (repW - markW) / 2);
+    repSvg.setAttribute('width', repW);
+    repSvg.setAttribute('height', svgH);
+    repSvg.style.width = repW + 'px';
+    repSvg.style.height = svgH + 'px';
+    repSvg.style.left = offsetX + 'px';
+
+
+  }
+
+  let activeTl = null;
+
+  function buildTimeline() {
+    // Kill previous timeline and its pinned ScrollTrigger
+    if (activeTl) {
+      if (activeTl.scrollTrigger) activeTl.scrollTrigger.kill();
+      activeTl.kill();
+      activeTl = null;
+    }
+
+    // Reset initial states
+    gsap.set(strikeLine, { scaleX: 0, opacity: 1, transformOrigin: 'left center' });
+    gsap.set(strikeWord, { opacity: 1 });
+    gsap.set(repSvg, { opacity: 0 });
+    gsap.set(repLetters, { fill: 'none', strokeDashoffset: SAFE_STROKE_LEN });
+
+    if (prefersReduced) {
+      gsap.set(strikeLine, { scaleX: 1, opacity: 0 });
+      gsap.set(strikeWord, { opacity: 0, visibility: 'hidden' });
+      gsap.set(repSvg, { opacity: 1 });
+      gsap.set(repLetters, { strokeDashoffset: 0, fill: '#FF5E00' });
+      return;
+    }
+
+    activeTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: sec,
+        start: 'center center',
+        end: '+=140%',
+        scrub: 0.5,
+        pin: true,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        onRefresh: setupRepLetters
+      }
+    });
+
+    // Phase 1: Strike line draws across "marketing" (0% - 14%)
+    activeTl.fromTo(strikeLine,
+      { scaleX: 0 },
+      { scaleX: 1, duration: 0.14, ease: 'none' },
+      0
+    );
+
+    // Phase 2: "marketing" fades out (12% - 26%)
+    activeTl.fromTo(strikeWord,
+      { opacity: 1 },
+      { opacity: 0, duration: 0.14, ease: 'none' },
+      0.12
+    );
+
+    // Phase 2b: Strike line fades out alongside marketing (16% - 26%)
+    activeTl.fromTo(strikeLine,
+      { opacity: 1 },
+      { opacity: 0, duration: 0.10, ease: 'none' },
+      0.16
+    );
+
+    // Phase 3: "reputation" SVG fades in with slight rise (22% - 32%)
+    activeTl.fromTo(repSvg,
+      { opacity: 0, y: 4 },
+      { opacity: 1, y: 0, duration: 0.10, ease: 'none' },
+      0.22
+    );
+
+    // Phase 4: Reputation letters draw one by one (30% - 72%)
+    const letterDuration = 0.055;
+    const letterGap = 0.038;
+    repLetters.forEach((letter, i) => {
+      activeTl.to(letter, {
+        strokeDashoffset: 0,
+        duration: letterDuration,
+        ease: 'none'
+      }, 0.30 + i * letterGap);
+    });
+
+    // Phase 5: Letters fill with orange color (68% - 84%)
+    activeTl.to(repLetters, {
+      fill: '#FF5E00',
+      duration: 0.16,
+      stagger: 0.015,
+      ease: 'none'
+    }, 0.68);
+
+    // Phase 6: Hold final state (84% - 100%)
+    activeTl.to({}, { duration: 0.06 });
+  }
+
+  // Wait for fonts then setup
+  function init() {
+    void strikeWord.offsetHeight; // force reflow
+    setupRepLetters();
+    buildTimeline();
+  }
+
+  if (document.fonts && document.fonts.ready) {
+    const fontTimeout = new Promise(function(resolve){ setTimeout(resolve, 3000); });
+    Promise.race([document.fonts.ready, fontTimeout]).then(init);
+  } else {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  }
+
+  // Re-measure on resize with proper debounce
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      setupRepLetters();
+      buildTimeline();
+      ScrollTrigger.refresh();
+    }, 250);
+  });
+
+  // Legacy is-in-view class
+  ScrollTrigger.create({
+    trigger: sec,
+    start: 'top 70%',
+    onEnter: () => sec.classList.add('is-in-view'),
+    once: true
+  });
+})();
+
+/* ---------- Voice Fingerprint — Canvas procedural waves ---------- */
+(function voiceFingerprintCanvas(){
+  const container = document.querySelector('#bentoVoice .voice-print-art');
+  if (!container) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'voice-print-canvas';
+  container.innerHTML = '';
+  container.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  let W, H, dpr, time = 0, raf;
+
+  function resize() {
+    const rect = container.getBoundingClientRect();
+    dpr = PERF.dpr;
+    W = rect.width;
+    H = rect.height;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawRidge(rx, ry, opacity) {
+    ctx.beginPath();
+    ctx.ellipse(W / 2, H / 2, rx, ry, 0, Math.PI, 0);
+    ctx.strokeStyle = `rgba(244,244,248,${opacity})`;
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(W / 2, H / 2, rx, ry, 0, 0, Math.PI);
+    ctx.stroke();
+  }
+
+  function drawWave(yBase, amp, freq, speed, phase, color, lineWidth, glow) {
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 1.5) {
+      // Additive synthesis: combine multiple sine waves for organic, non-periodic look
+      const t = time * speed + phase;
+      const y = yBase + (
+        Math.sin(x * freq + t) * amp * 0.55 +
+        Math.sin(x * freq * 2.17 + t * 1.31) * amp * 0.28 +
+        Math.sin(x * freq * 0.53 + t * 0.79) * amp * 0.17
+      );
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (glow) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Fingerprint ridges
+    drawRidge(W * 0.42, H * 0.38, 0.06);
+    drawRidge(W * 0.35, H * 0.30, 0.05);
+    drawRidge(W * 0.28, H * 0.22, 0.04);
+    drawRidge(W * 0.20, H * 0.15, 0.03);
+
+    // Wave tracks
+    drawWave(H * 0.18, H * 0.07, 0.022, 0.025, 0,     'rgba(26,106,255,0.35)', 1.2);
+    drawWave(H * 0.32, H * 0.10, 0.018, 0.020, 1.5,   'rgba(110,60,255,0.40)',  1.4);
+    drawWave(H * 0.52, H * 0.14, 0.015, 0.018, 3,     '#FF5E00',                2.2, true);
+    drawWave(H * 0.72, H * 0.10, 0.017, 0.015, 4.5,   'rgba(255,138,61,0.40)',  1.4);
+    drawWave(H * 0.86, H * 0.07, 0.019, 0.020, 6,     'rgba(255,94,0,0.30)',    1.2);
+
+    // Scan bar — smooth ping-pong oscillation (no reset)
+    const scanPhase = Math.sin(time * 0.0025);
+    const scanX = (scanPhase * 0.5 + 0.5) * W;
+    const scanAlpha = Math.pow(1 - Math.abs(scanPhase), 0.7);
+    if (scanAlpha > 0.01) {
+      const g = ctx.createLinearGradient(scanX, 0, scanX, H);
+      g.addColorStop(0, 'rgba(255,94,0,0)');
+      g.addColorStop(0.5, `rgba(255,94,0,${0.45 * scanAlpha})`);
+      g.addColorStop(1, 'rgba(255,94,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(scanX - 1, 0, 2, H);
+    }
+
+    time += 1;
+    raf = requestAnimationFrame(draw);
+  }
+
+  resize();
+  draw();
+  window.addEventListener('resize', resize);
+
+  // Pause when off-screen to save GPU
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(([en]) => {
+      if (en.isIntersecting) { if (!raf) draw(); }
+      else { cancelAnimationFrame(raf); raf = null; }
+    });
+    io.observe(container);
+  }
 })();
 
 /* ---------- Counters ---------- */
 (function counters(){
-  const els = document.querySelectorAll('[data-count]');
+  let els = document.querySelectorAll('[data-count]');
+  // Skip counters inside premise stat slides — handled by carousel
+  els = Array.from(els).filter(el => !el.closest('.ps-slide'));
   if (!els.length || !('IntersectionObserver' in window)) {
     els.forEach(e => e.textContent = e.getAttribute('data-count'));
     return;
@@ -188,6 +508,60 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
     });
   }, { threshold: 0.4 });
   els.forEach(el => io.observe(el));
+})();
+
+/* ---------- Premise stat carousel ---------- */
+(function premiseCarousel(){
+  const card = document.querySelector('.prem-stat');
+  const slides = card ? card.querySelectorAll('.ps-slide') : [];
+  if (!slides.length) return;
+
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const animateCounter = (el) => {
+    if (el.dataset.countAnimated === 'true') return;
+    el.dataset.countAnimated = 'true';
+    const target = parseFloat(el.getAttribute('data-count')) || 0;
+    const isDecimal = String(target).includes('.');
+    const dur = 1400;
+    const start = performance.now();
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / dur);
+      const eased = ease(p);
+      const val = eased * target;
+      el.textContent = isDecimal ? val.toFixed(1) : Math.round(val);
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  const goTo = (idx) => {
+    slides.forEach((s, i) => {
+      const active = i === idx;
+      s.classList.toggle('is-active', active);
+      if (active) {
+        const countEl = s.querySelector('[data-count]');
+        if (countEl) animateCounter(countEl);
+      }
+    });
+  };
+
+  // Animate first slide counter immediately (others handled by scroll)
+  const firstCount = slides[0].querySelector('[data-count]');
+  if (firstCount) animateCounter(firstCount);
+
+  if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+    gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.create({
+      trigger: '#premise',
+      start: 'top 80%',
+      end: 'bottom 20%',
+      scrub: true,
+      onUpdate: (self) => {
+        const idx = Math.min(slides.length - 1, Math.floor(self.progress * slides.length));
+        goTo(idx);
+      }
+    });
+  }
 })();
 
 /* ---------- Process rail fill ---------- */
@@ -496,7 +870,15 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
     io.observe(hero);
   }
 
-  window.addEventListener('resize', resize);
+  let flowResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(flowResizeTimer);
+    flowResizeTimer = setTimeout(resize, 150);
+  });
+  window.addEventListener('orientationchange', () => {
+    clearTimeout(flowResizeTimer);
+    flowResizeTimer = setTimeout(resize, 200);
+  });
   resize();
   start();
 })();
@@ -906,12 +1288,14 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
 
     // Blue structural lines
     if (pa > 0.5) {
+      const lineScroll = p >= 0.55 ? pOutput * 420 : 0;
+      const lineAlpha = p >= 0.55 ? Math.max(0, 1 - pOutput * 1.45) : 1;
       for (let c = 0; c < totalCols; c++) {
         const lineX = startX + c * colW - colW/2 + 20;
         ctx.beginPath();
-        ctx.moveTo(lineX, cy - 140);
-        ctx.lineTo(lineX, cy + 140);
-        ctx.strokeStyle = 'rgba(26,106,255,' + ((pa - 0.5) * 2 * 0.4) + ')';
+        ctx.moveTo(lineX, cy - 140 - lineScroll);
+        ctx.lineTo(lineX, cy + 140 - lineScroll);
+        ctx.strokeStyle = 'rgba(26,106,255,' + ((pa - 0.5) * 2 * 0.4 * lineAlpha) + ')';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -929,6 +1313,12 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
     gsap.registerPlugin(ScrollTrigger);
 
     const heroSticky = document.querySelector('.hero-sticky');
+    if (PERF.isMobile) {
+      if (heroContent) heroContent.classList.add('is-revealed');
+      if (heroSticky) heroSticky.classList.add('has-revealed');
+      overlays.forEach(el => { el.style.opacity = '0'; el.style.display = 'none'; });
+      return;
+    }
     ScrollTrigger.create({
       trigger: '.hero-wrap',
       start: 'top top',
@@ -1050,6 +1440,13 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
   const dots     = wrap.querySelectorAll('.hp-dot');
   const fillBar  = document.getElementById('horizonFill');
   const foot     = wrap.querySelector('.horizon-foot');
+
+  if (PERF.isMobile) {
+    acts.forEach(a => a.classList.add('is-active'));
+    if (foot) foot.classList.add('is-shown');
+    return;
+  }
+
   const ctx      = cv.getContext('2d', { alpha: true });
   const DPR      = PERF.dpr;
   const TAU      = Math.PI * 2;
@@ -1297,7 +1694,15 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
   }
 
   window.addEventListener('scroll', updateScroll, { passive: true });
-  window.addEventListener('resize', resize);
+  let horizonResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(horizonResizeTimer);
+    horizonResizeTimer = setTimeout(resize, 150);
+  });
+  window.addEventListener('orientationchange', () => {
+    clearTimeout(horizonResizeTimer);
+    horizonResizeTimer = setTimeout(resize, 200);
+  });
   resize();
   updateScroll();
 
@@ -1348,7 +1753,7 @@ document.addEventListener('visibilitychange', () => { DOC_VISIBLE = !document.hi
 /* ==============================================================
    LENIS SMOOTH SCROLL
    ============================================================== */
-if (typeof Lenis !== 'undefined' && !PERF.isLowEnd) {
+if (typeof Lenis !== 'undefined' && !PERF.isLowEnd && !PERF.isMobile) {
   const lenis = new Lenis({
     duration: 1.2,
     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
