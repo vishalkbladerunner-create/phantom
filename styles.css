@@ -2093,8 +2093,10 @@ html.lenis, html.lenis body { height: auto; }
   .horizon-wrap{ min-height: 260vh; }
   .horizon-ui{ padding: 100px var(--gutter) 48px max(100px, 10vw); }
   .pstep,.pstep:nth-child(even){ grid-template-columns: 1fr; direction: ltr; gap: 28px; }
-  .pstep .ps-left{ order: 1; }
-  .pstep .ps-art{ order: 2; }
+  .pstep .ps-left,
+  .pstep:nth-child(even) .ps-left{ order: 1; }
+  .pstep .ps-art,
+  .pstep:nth-child(even) .ps-art{ order: 2; }
   .ps-art{ max-width: 100%; aspect-ratio: 4/3; }
   .bento{ grid-template-columns: 1fr 1fr; grid-auto-rows: auto; }
   .bento-card,.bento-card.big,.bento-card.wide,.bento-card.wide-1row,.bento-card.placed-inbound,.bento-card.placed-distribution{ grid-column: span 2; grid-row: auto; }
