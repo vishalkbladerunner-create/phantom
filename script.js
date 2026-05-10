@@ -19,11 +19,11 @@ const PERF = (() => {
     isMobile,
     isLowEnd,
     dpr: isHighEnd ? Math.min(1.5, window.devicePixelRatio || 1) : isMobile ? 1 : Math.min(1.25, window.devicePixelRatio || 1),
-    flowParticles: isHighEnd ? 180 : isMobile ? 30 : 100,
-    stormWords: isHighEnd ? 360 : isMobile ? 40 : 180,
-    stormGridTitles: isHighEnd ? 14 : isMobile ? 0 : 8,
-    stormFlowParticles: isHighEnd ? 30 : isMobile ? 0 : 16,
-    horizonParticles: isHighEnd ? 80 : isMobile ? 18 : 50,
+    flowParticles: isHighEnd ? 180 : 100,
+    stormWords: isHighEnd ? 360 : 180,
+    stormGridTitles: isHighEnd ? 14 : 8,
+    stormFlowParticles: isHighEnd ? 30 : 16,
+    horizonParticles: isHighEnd ? 80 : 50,
     disableShadows: tier !== 'high',
     disableMouse: isMobile,
     useCanvas: !(isMobile && isLowEnd)
@@ -233,13 +233,15 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     // Size SVG to fit the reputation letters; let it overflow the strike element naturally
     const repW = Math.ceil(totalW);
     const markW = strikeWord.offsetWidth;
-    // Shift reputation right so it sits centered over where marketing was
-    const offsetX = Math.max(0, (repW - markW) / 2);
+    // Align left to push the following text when expanding width
     repSvg.setAttribute('width', repW);
     repSvg.setAttribute('height', svgH);
     repSvg.style.width = repW + 'px';
     repSvg.style.height = svgH + 'px';
-    repSvg.style.left = offsetX + 'px';
+    repSvg.style.left = '0px';
+
+    sec._repW = repW;
+    sec._markW = markW;
 
 
   }
@@ -254,13 +256,19 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
       activeTl = null;
     }
 
+    const wordStack = sec.querySelector('.word-stack');
+    const repW = sec._repW || 0;
+    const markW = sec._markW || 0;
+
     // Reset initial states
+    gsap.set(wordStack, { width: markW });
     gsap.set(strikeLine, { scaleX: 0, opacity: 1, transformOrigin: 'left center' });
     gsap.set(strikeWord, { opacity: 1 });
     gsap.set(repSvg, { opacity: 0 });
     gsap.set(repLetters, { fill: 'none', strokeDashoffset: SAFE_STROKE_LEN });
 
     if (prefersReduced) {
+      gsap.set(wordStack, { width: repW });
       gsap.set(strikeLine, { scaleX: 1, opacity: 0 });
       gsap.set(strikeWord, { opacity: 0, visibility: 'hidden' });
       gsap.set(repSvg, { opacity: 1 });
@@ -306,6 +314,11 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
       { opacity: 1, y: 0, duration: 0.10, ease: 'none' },
       0.22
     );
+    activeTl.to(wordStack, {
+      width: repW,
+      duration: 0.20,
+      ease: 'power1.inOut'
+    }, 0.22);
 
     // Phase 4: Reputation letters draw one by one (30% - 72%)
     const letterDuration = 0.055;
@@ -481,8 +494,6 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
 /* ---------- Counters ---------- */
 (function counters(){
   let els = document.querySelectorAll('[data-count]');
-  // Skip counters inside premise stat slides — handled by carousel
-  els = Array.from(els).filter(el => !el.closest('.ps-slide'));
   if (!els.length || !('IntersectionObserver' in window)) {
     els.forEach(e => e.textContent = e.getAttribute('data-count'));
     return;
@@ -514,59 +525,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   els.forEach(el => io.observe(el));
 })();
 
-/* ---------- Premise stat carousel ---------- */
-(function premiseCarousel(){
-  const card = document.querySelector('.prem-stat');
-  const slides = card ? card.querySelectorAll('.ps-slide') : [];
-  if (!slides.length) return;
 
-  const ease = t => 1 - Math.pow(1 - t, 3);
-  const animateCounter = (el) => {
-    if (el.dataset.countAnimated === 'true') return;
-    el.dataset.countAnimated = 'true';
-    const target = parseFloat(el.getAttribute('data-count')) || 0;
-    const isDecimal = String(target).includes('.');
-    const dur = 1400;
-    const start = performance.now();
-    const tick = (t) => {
-      const p = Math.min(1, (t - start) / dur);
-      const eased = ease(p);
-      const val = eased * target;
-      el.textContent = isDecimal ? val.toFixed(1) : Math.round(val);
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  };
-
-  const goTo = (idx) => {
-    slides.forEach((s, i) => {
-      const active = i === idx;
-      s.classList.toggle('is-active', active);
-      if (active) {
-        const countEl = s.querySelector('[data-count]');
-        if (countEl) animateCounter(countEl);
-      }
-    });
-  };
-
-  // Animate first slide counter immediately (others handled by scroll)
-  const firstCount = slides[0].querySelector('[data-count]');
-  if (firstCount) animateCounter(firstCount);
-
-  if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
-    gsap.registerPlugin(ScrollTrigger);
-    ScrollTrigger.create({
-      trigger: '#premise',
-      start: 'top 80%',
-      end: 'bottom 20%',
-      scrub: true,
-      onUpdate: (self) => {
-        const idx = Math.min(slides.length - 1, Math.floor(self.progress * slides.length));
-        goTo(idx);
-      }
-    });
-  }
-})();
 
 /* ---------- Process rail fill ---------- */
 (function rail(){
@@ -978,7 +937,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
         x: startX, y: startY,
         z: Math.random() * 200,
         vx: 0, vy: 0,
-        baseSize: isSignal ? 16 + Math.random()*5 : 14 + Math.random()*4,
+        baseSize: isSignal ? (window.innerWidth <= 900 ? 12 + Math.random()*3 : 16 + Math.random()*5) : (window.innerWidth <= 900 ? 10 + Math.random()*2 : 14 + Math.random()*4),
         alpha: 0, dissolved: false,
         orbA: Math.random() * TAU,
         orbR: 150 + Math.random() * 250,
@@ -1154,8 +1113,9 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const colW = 180;
-    const rowH = 36;
+    const isMobileLayout = window.innerWidth <= 900;
+    const colW = isMobileLayout ? Math.min(180, W / 3.2) : 180;
+    const rowH = isMobileLayout ? 24 : 36;
     const totalCols = 3;
     const startX = cx - (colW * totalCols) / 2 + colW / 2;
     const startY = cy - 120;
@@ -1320,8 +1280,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     ScrollTrigger.create({
       trigger: '.hero-wrap',
       start: 'top top',
-      end: '+=550%',
-      pin: '.hero-sticky',
+      end: 'bottom bottom',
       scrub: 0.8,
       anticipatePin: 1,
       invalidateOnRefresh: true,
@@ -1337,7 +1296,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
       scrollTrigger: {
         trigger: '.hero-wrap',
         start: 'top top',
-        end: '+=550%',
+        end: 'bottom bottom',
         scrub: 0.8
       }
     });
@@ -1469,7 +1428,9 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   let textFrags = [];
 
   function initFragments(){
-    const cx = W * 0.72, cy = H * 0.5;
+    const isMobileLayout = window.innerWidth <= 900;
+    const cx = isMobileLayout ? W * 0.5 : W * 0.72;
+    const cy = isMobileLayout ? H * 0.35 : H * 0.5;
     const R = Math.min(W * 0.15, 155);
     textFrags = FRAGS.map((t, i) => {
       const convAngle = (i / FRAGS.length) * TAU - Math.PI / 2;
@@ -1507,8 +1468,9 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     ctx.clearRect(0, 0, W, H);
     time += 0.012;
 
-    const cx = W * 0.72;
-    const cy = H * 0.5;
+    const isMobileLayout = window.innerWidth <= 900;
+    const cx = isMobileLayout ? W * 0.5 : W * 0.72;
+    const cy = isMobileLayout ? H * 0.35 : H * 0.5;
 
     const p2   = Math.max(0, Math.min(1, (progress - 0.26) * 2.7));
     const p3   = Math.max(0, Math.min(1, (progress - 0.60) * 2.5));
