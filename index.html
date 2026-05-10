@@ -8,8 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://api.fontshare.com" />
-<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" />
+<link rel="preload" as="image" href="assets/logo.png" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=optional" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=optional" />
 <link rel="stylesheet" href="styles.css" />
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 <noscript>
@@ -31,9 +32,9 @@
 </div>
 
 <!-- ============ NAV ============ -->
-<header class="nav" aria-label="Primary">
+<header class="nav is-hero" aria-label="Primary">
   <a href="#top" class="nav-brand" aria-label="Phantom Post — Home">
-    <img class="nav-logo" src="assets/logo.png" alt="Phantom Post" width="200" height="55" />
+    <img class="nav-logo" src="assets/logo.png" alt="Phantom Post" width="200" height="55" fetchpriority="high" />
   </a>
   <nav class="nav-links" aria-label="Sections">
     <a href="#premise"><span>01</span> Premise</a>
@@ -79,19 +80,19 @@
     <div class="storm-overlay-wrap">
       <div class="storm-overlay" data-phase="1">
         <span class="so-phase">02</span>
-        <span class="so-line">We separate signal from noise.</span>
+        <span class="so-line">We extract signal from the noise.</span>
       </div>
     </div>
     <div class="storm-overlay-wrap">
       <div class="storm-overlay" data-phase="2">
         <span class="so-phase">03</span>
-        <span class="so-line">We build the machine around your voice.</span>
+        <span class="so-line">We build the machine around your authentic voice.</span>
       </div>
     </div>
     <div class="storm-overlay-wrap">
       <div class="storm-overlay" data-phase="3">
         <span class="so-phase">04</span>
-        <span class="so-line">The machine ships. You think.</span>
+        <span class="so-line">The machine ships. You stay in flow.</span>
       </div>
     </div>
     <div class="storm-overlay-wrap storm-overlay-final-wrap">
@@ -109,17 +110,7 @@
       <span class="hrl-line">REPUTATION INFRASTRUCTURE</span>
       <span class="hrl-line hrl-fade">NYC · LDN · SF</span>
     </div>
-    <div class="hero-rail hero-rail-right" aria-hidden="true">
-      <div class="hrr-head">
-        <i class="dot live"></i>
-        <span>11 ACTIVE</span>
-      </div>
-      <div class="hrr-body">
-        <span>3 timezones</span>
-        <span>From $14k/mo</span>
-        <span>100% retention</span>
-      </div>
-    </div>
+
 
     <!-- Hero content revealed at end of scroll -->
     <div class="hero-inner" id="heroContent">
@@ -335,37 +326,38 @@
         <div class="horizon-act is-active" data-act="1">
           <div class="ha-meta">
             <span class="ha-num">01</span>
-            <span class="ha-phase">SCATTERED</span>
+            <span class="ha-phase">DISARRAY</span>
           </div>
-          <h3 class="ha-title">The Small <em>Sphere</em></h3>
+          <h3 class="ha-title">The Translation <em>Gap</em></h3>
           <p class="ha-body">
-            Most founders start on a small sphere. Their voice feels generic, noisy,
-            inauthentic. The horizon is close. Uncertainty is high.
-            Every post feels like <em>guessing</em>.
+            Most founders start here.
+            You have valuable observations and convictions, but no clear, repeatable way to turn them into compelling content.
+            Ideas stay trapped in your head. Posts feel inconsistent or watered-down. You're guessing what will resonate. Every piece takes disproportionate effort and rarely builds real authority.
           </p>
         </div>
         <div class="horizon-act" data-act="2">
           <div class="ha-meta">
             <span class="ha-num">02</span>
-            <span class="ha-phase">CONVERGING</span>
+            <span class="ha-phase">CONVERGENCE</span>
           </div>
-          <h3 class="ha-title">The Sphere <em>Expands</em></h3>
+          <h3 class="ha-title">Core Framing <em>Emerges</em></h3>
           <p class="ha-body">
-            By deeply understanding your own thinking — your unique observations,
-            core principles, what genuinely excites you — the sphere grows.
-            The horizon <em>recedes</em>. The curve flattens.
+            We help you build the core framing for your ideas.
+            We deeply extract your clearest observations, hard-earned principles, convictions, and unique perspective. We cut the noise and codify everything into a precise, repeatable system.
+            What felt hard to articulate suddenly becomes structured and ownable. Your voice starts feeling unmistakably yours.
           </p>
         </div>
         <div class="horizon-act" data-act="3">
           <div class="ha-meta">
             <span class="ha-num">03</span>
-            <span class="ha-phase">CLARITY</span>
+            <span class="ha-phase">FOCUS</span>
           </div>
-          <h3 class="ha-title">The Curve <em>Flips</em></h3>
+          <h3 class="ha-title">Authority <em>Compounds</em></h3>
           <p class="ha-body">
-            Your voice is no longer a single point on a small sphere. It becomes
-            a wide, stable platform. You can scale across formats, channels,
-            and years — without losing <em>yourself</em>.
+            Your thinking now has a reliable translation layer and solid core framing.
+            It becomes a stable system that ships consistently across the right platforms and formats for your specific audience.
+            We align your voice with the channels where your audience actually are — so authority builds efficiently over time.
+            You stop grinding on content. The system runs quietly in the background while you stay focused on building.
           </p>
         </div>
       </div>
@@ -984,7 +976,7 @@
         Eighteen months in, our pipeline runs on what they publish.
       </blockquote>
       <figcaption>
-        <img src="assets/testimonial.png" alt="" />
+        <img src="assets/testimonial.png" alt="" width="1024" height="1024" />
         <div>
           <span class="pq-name">Founder</span>
           <span class="pq-role">DeFi Infrastructure · Series&nbsp;B</span>
