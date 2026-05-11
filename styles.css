@@ -2343,10 +2343,11 @@ html.lenis body {
 .ps-list li::before {
   content: "";
   position: absolute;
-  left: 0;
+  left: 4px;
   top: 0.6em;
-  width: 12px;
-  height: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   background: var(--orange);
 }
 .ps-art {
