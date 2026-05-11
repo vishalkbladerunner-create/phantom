@@ -530,6 +530,62 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
 })();
 
 
+/* ---------- Premise metric hover expand ---------- */
+(function premiseMetrics(){
+  var grid = document.querySelector('.ps-metric-grid');
+  if (!grid) return;
+
+  var metrics = grid.querySelectorAll('.ps-metric');
+  var overlay = document.getElementById('psIntroOverlay');
+  var isMobile = function(){ return window.matchMedia('(max-width: 900px)').matches; };
+  var overlayDismissed = false;
+
+  // Stage 1: Dismiss overlay on first grid hover
+  if (overlay) {
+    grid.addEventListener('mouseenter', function(){
+      if (isMobile() || overlayDismissed) return;
+      overlay.classList.add('is-hidden');
+      overlayDismissed = true;
+    });
+  }
+
+  // Stage 2: Individual tile hover — dim siblings + counter animation
+  metrics.forEach(function(metric){
+    metric.addEventListener('mouseenter', function(){
+      if (isMobile()) return;
+
+      // Dim sibling tiles
+      metrics.forEach(function(m){
+        if (m !== metric) {
+          m.style.opacity = '0.15';
+        }
+      });
+
+      // Animate the expanded counter
+      var counterEl = metric.querySelector('.ps-metric-expand [data-count]');
+      if (counterEl) {
+        var target = parseFloat(counterEl.getAttribute('data-count')) || 0;
+        var dur = 800;
+        var start = performance.now();
+        var ease = function(t){ return 1 - Math.pow(1 - t, 3); };
+        var tick = function(t){
+          var p = Math.min(1, (t - start) / dur);
+          counterEl.textContent = Math.round(ease(p) * target);
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+    });
+
+    metric.addEventListener('mouseleave', function(){
+      if (isMobile()) return;
+      // Restore all siblings
+      metrics.forEach(function(m){
+        m.style.opacity = '';
+      });
+    });
+  });
+})();
 
 /* ---------- Process rail fill ---------- */
 (function rail(){
