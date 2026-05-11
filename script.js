@@ -1464,7 +1464,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
   const acts     = wrap.querySelectorAll('.horizon-act');
   const dots     = wrap.querySelectorAll('.hp-dot');
   const fillBar  = document.getElementById('horizonFill');
-  const foot     = wrap.querySelector('.horizon-foot');
+
 
   // Mobile scroll-driven animations are enabled — canvas and acts animate normally
 
@@ -1706,7 +1706,7 @@ if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     });
 
     if (fillBar) fillBar.style.height = (progress * 100) + '%';
-    if (foot) foot.classList.toggle('is-shown', progress > 0.80);
+
   }
 
   if ('IntersectionObserver' in window){

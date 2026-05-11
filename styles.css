@@ -285,9 +285,7 @@ main{ position: relative; z-index: 1; }
 }
 .section::before{
   content: ''; position: absolute; pointer-events: none; z-index: 0;
-  top: 0; bottom: 0;
-  left: 50%; transform: translateX(-50%);
-  width: 100vw; max-width: 100vw;
+  inset: 0;
 }
 .section > *{ position: relative; z-index: 1; }
 .section.has-blue::before{
@@ -1365,28 +1363,6 @@ html.lenis, html.lenis body { height: auto; }
   padding-right: 0.04em;
 }
 
-/* Footer caption */
-.horizon-foot{
-  display: flex; flex-direction: column; gap: 8px;
-  max-width: 480px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity .6s var(--ease-out), transform .6s var(--ease-out);
-}
-.horizon-foot.is-shown{
-  opacity: 1; transform: none;
-}
-.hf-eq{
-  font: 600 20px/1 var(--display);
-  letter-spacing: -0.01em;
-  color: var(--text);
-}
-.hf-sub{
-  font: 400 15px/1.6 var(--body);
-  color: var(--text-mute);
-}
 
 /* ============ MANIFESTO ============ */
 .manifesto{
@@ -2243,8 +2219,8 @@ html.lenis, html.lenis body { height: auto; }
     border: 0;
     border-radius: 0;
     padding: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     height: 100dvh;
   }
   .nav.is-open .nav-links a{
@@ -2347,24 +2323,9 @@ html.lenis, html.lenis body { height: auto; }
   .floor-stat{ border-left: 0; padding: 16px 0; border-top: 1px solid var(--line); }
   .floor-stat:first-child{ border-top: 0; padding-top: 0; }
 
-  /* Hero side rails: scaled down but visible */
-  .hero-rail-left{
-    left: 8px;
-    gap: 6px;
-    max-height: calc(100svh - 140px);
-  }
-  .hrl-line{
-    font-size: clamp(6px, 1.2vw, 8px);
-    letter-spacing: 0.2em;
-  }
-  .hero-rail-right{
-    right: var(--gutter);
-    top: 56%;
-    padding: 10px 12px;
-    gap: 8px;
-  }
-  .hrr-head{ font-size: 8px; gap: 6px; }
-  .hrr-body{ font-size: 10px; gap: 4px; }
+  /* Hero side rails: hidden on mobile for symmetry */
+  .hero-rail-left,
+  .hero-rail-right{ display: none; }
 
   /* Hero preview bar scaled down */
   .hero-preview-bar{
@@ -2385,9 +2346,9 @@ html.lenis, html.lenis body { height: auto; }
   }
   .ht-names{ display: block; margin-top: 4px; }
 
-  /* Hero inner: room for side rails */
+  /* Hero inner: symmetrical padding */
   .hero-inner{
-    padding: 60px max(52px, var(--gutter)) 40px max(44px, var(--gutter));
+    padding: 60px var(--gutter) 40px;
     gap: 28px;
   }
   .hero-title{
@@ -2492,13 +2453,10 @@ html.lenis, html.lenis body { height: auto; }
   :root{ --gutter: 16px; }
   .hero-wrap{ min-height: 450vh; }
   .hero-title{ font-size: clamp(24px, 7.5vw, 34px); }
-  .hero-inner{ padding: 50px max(48px, var(--gutter)) 32px max(40px, var(--gutter)); }
+  .hero-inner{ padding: 50px var(--gutter) 32px; }
   .storm-overlay{ padding: 10px 16px; border-radius: 10px; }
   .so-line{ font-size: clamp(18px, 5vw, 26px); }
   .so-final{ font-size: clamp(26px, 7.5vw, 38px); }
-  .hero-rail-left{ left: 6px; }
-  .hero-rail-right{ right: var(--gutter); padding: 8px 10px; }
-  .hrr-body{ font-size: 9px; }
   .hero-preview-bar{ bottom: 28px; }
   .hpb-inner{ padding: 5px 12px; gap: 8px; }
   .hpb-stat{ font-size: 9px; }
