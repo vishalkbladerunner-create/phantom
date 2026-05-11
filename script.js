@@ -2094,6 +2094,62 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   });
 })();
 
+/* ---------- Bento Cards Scroll Reveal ---------- */
+(function bentoReveal() {
+  const cards = document.querySelectorAll(".bento-card");
+  if (!cards.length || !("IntersectionObserver" in window)) {
+    cards.forEach((c) => c.classList.add("is-revealed"));
+    return;
+  }
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          // Add a slight delay for a stagger effect if multiple appear at once
+          setTimeout(() => {
+            en.target.classList.add("is-revealed");
+          }, 100);
+          io.unobserve(en.target);
+        }
+      });
+    },
+    { threshold: 0.15, rootMargin: "0px 0px -15% 0px" },
+  );
+  cards.forEach((c) => io.observe(c));
+})();
+
+/* ---------- Process Text Staggered Reveal ---------- */
+(function processReveal() {
+  const steps = document.querySelectorAll(".ps-left");
+  if (!steps.length || !("IntersectionObserver" in window)) {
+    document.querySelectorAll(".ps-reveal-block").forEach((b) => {
+      b.style.clipPath = "inset(-10% -10% -10% -10%)";
+    });
+    return;
+  }
+  
+  steps.forEach(step => {
+    const blocks = step.querySelectorAll(".ps-reveal-block");
+    blocks.forEach((b, i) => {
+      // 0.3s stagger matches the "25% of 1.2s duration" request
+      b.style.setProperty('--reveal-del', (i * 0.3) + 's');
+    });
+  });
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          en.target.classList.add("is-revealed");
+          io.unobserve(en.target);
+        }
+      });
+    },
+    { threshold: 0.15, rootMargin: "0px 0px -15% 0px" },
+  );
+  steps.forEach((step) => io.observe(step));
+})();
+
 /* ==============================================================
    LENIS SMOOTH SCROLL
    ============================================================== */
