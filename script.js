@@ -324,7 +324,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       gsap.set(strikeLine, { scaleX: 1, opacity: 0 });
       gsap.set(strikeWord, { opacity: 0, visibility: "hidden" });
       gsap.set(repSvg, { opacity: 1 });
-      gsap.set(repLetters, { strokeDashoffset: 0, fill: "#FF5E00" });
+      gsap.set(repLetters, { strokeDashoffset: 0, fill: (i, el) => el.classList.contains("rep-white") ? "#F4F4F8" : "#FF5E00" });
       return;
     }
 
@@ -395,11 +395,11 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       );
     });
 
-    // Phase 5: Letters fill with orange color (68% - 84%)
+    // Phase 5: Letters fill with their respective colors (68% - 84%)
     activeTl.to(
       repLetters,
       {
-        fill: "#FF5E00",
+        fill: (i, el) => el.classList.contains("rep-white") ? "#F4F4F8" : "#FF5E00",
         duration: 0.16,
         stagger: 0.015,
         ease: "none",
@@ -618,65 +618,90 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   els.forEach((el) => io.observe(el));
 })();
 
-/* ---------- Premise metric hover expand ---------- */
+/* ---------- Premise metric scroll expand ---------- */
 (function premiseMetrics() {
   var grid = document.querySelector(".ps-metric-grid");
-  if (!grid) return;
+  var statCard = document.querySelector(".prem-stat");
+  if (!grid || !statCard) return;
 
   var metrics = grid.querySelectorAll(".ps-metric");
-  var overlay = document.getElementById("psIntroOverlay");
   var isMobile = function () {
-    return window.matchMedia("(max-width: 900px)").matches;
+    return window.matchMedia("(max-width: 600px)").matches;
   };
-  var overlayDismissed = false;
 
-  // Stage 1: Dismiss overlay on first grid hover
-  if (overlay) {
-    grid.addEventListener("mouseenter", function () {
-      if (isMobile() || overlayDismissed) return;
-      overlay.classList.add("is-hidden");
-      overlayDismissed = true;
-    });
-  }
+  if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
+    let tl;
+    function buildTl() {
+      if (tl) {
+        if (tl.scrollTrigger) tl.scrollTrigger.kill();
+        tl.kill();
+        tl = null;
+      }
+      
+      if (isMobile()) {
+         metrics.forEach(m => m.classList.remove("is-active"));
+         grid.classList.remove("is-scrubbing");
+         return;
+      }
+      
+      grid.classList.add("is-scrubbing");
 
-  // Stage 2: Individual tile hover — dim siblings + counter animation
-  metrics.forEach(function (metric) {
-    metric.addEventListener("mouseenter", function () {
-      if (isMobile()) return;
-
-      // Dim sibling tiles
-      metrics.forEach(function (m) {
-        if (m !== metric) {
-          m.style.opacity = "0.15";
+      tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: statCard.closest(".premise-grid"),
+          start: "center center",
+          end: "+=250%",
+          pin: true,
+          scrub: true,
+          onUpdate: self => {
+            const progress = self.progress;
+            const activeIndex = Math.min(3, Math.floor(progress * 4));
+            
+            metrics.forEach((m, i) => {
+              if (i === activeIndex) {
+                if (!m.classList.contains("is-active")) {
+                  m.classList.add("is-active");
+                  // Animate the counter
+                  var counterEl = m.querySelector(".ps-metric-expand [data-count]");
+                  if (counterEl && !m._counted) {
+                    m._counted = true;
+                    var target = parseFloat(counterEl.getAttribute("data-count")) || 0;
+                    var dur = 800;
+                    var start = performance.now();
+                    var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
+                    var tick = function (t) {
+                      var p = Math.min(1, (t - start) / dur);
+                      counterEl.textContent = Math.round(ease(p) * target);
+                      if (p < 1) requestAnimationFrame(tick);
+                    };
+                    requestAnimationFrame(tick);
+                  }
+                }
+              } else {
+                m.classList.remove("is-active");
+                m._counted = false;
+              }
+            });
+          }
         }
       });
+    }
 
-      // Animate the expanded counter
-      var counterEl = metric.querySelector(".ps-metric-expand [data-count]");
-      if (counterEl) {
-        var target = parseFloat(counterEl.getAttribute("data-count")) || 0;
-        var dur = 800;
-        var start = performance.now();
-        var ease = function (t) {
-          return 1 - Math.pow(1 - t, 3);
-        };
-        var tick = function (t) {
-          var p = Math.min(1, (t - start) / dur);
-          counterEl.textContent = Math.round(ease(p) * target);
-          if (p < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(buildTl);
+    } else {
+      buildTl();
+    }
+    
+    let resizeTimer;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        buildTl();
+        ScrollTrigger.refresh();
+      }, 250);
     });
-
-    metric.addEventListener("mouseleave", function () {
-      if (isMobile()) return;
-      // Restore all siblings
-      metrics.forEach(function (m) {
-        m.style.opacity = "";
-      });
-    });
-  });
+  }
 })();
 
 /* ---------- Process rail fill ---------- */
