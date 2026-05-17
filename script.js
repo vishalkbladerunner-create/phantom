@@ -1347,6 +1347,20 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   function easeInOutCubic(x) {
     return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
   }
+  function smoothstep(edge0, edge1, x) {
+    const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+  function hexLerp(t, a, b) {
+    const ah = parseInt(a.replace('#', ''), 16);
+    const bh = parseInt(b.replace('#', ''), 16);
+    const ar = ah >> 16, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+    const br = bh >> 16, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+    const rr = Math.round(ar + (br - ar) * t);
+    const rg = Math.round(ag + (bg - ag) * t);
+    const rb = Math.round(ab + (bb - ab) * t);
+    return '#' + ((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1);
+  }
 
   const phaseChaos = (p) => Math.max(0, Math.min(1, p / 0.15));
   const phaseFilter = (p) => Math.max(0, Math.min(1, (p - 0.15) / 0.2));
@@ -1511,20 +1525,23 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     const pa = phaseAssemble(p);
     const po = phaseOutput(p);
 
+    // Smooth shadow strength for signal words: fades in 0.12-0.18, fades out 0.92-0.97
+    const shadowStrength = smoothstep(0.12, 0.18, p) * (1 - smoothstep(0.92, 0.97, p));
+
+    // Reset dissolved flags when returning to chaos (for scroll-back safety)
     if (p < 0.15) {
       for (let k = 0; k < words.length; k++) {
         words[k].dissolved = false;
       }
     }
 
-    // Batch words by shadow state to minimize shadowBlur changes
+    // Word drawing helper
     const drawWord = (w, tx, ty, scale, alpha, col, font) => {
       const sa = alpha * Math.min(1, scale);
-      if (sa <= 0.01) return;
+      if (sa <= 0.005) return;
       ctx.globalAlpha = sa;
       ctx.font = font;
       ctx.fillStyle = col;
-      // Manual transform instead of save/restore
       const invScale = 1 / scale;
       ctx.translate(tx, ty);
       ctx.scale(scale, scale);
@@ -1533,118 +1550,143 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       ctx.translate(-tx, -ty);
     };
 
+    // Shared chaos physics (used by both passes in phase 0)
+    const applyChaosPhysics = (w) => {
+      w.vx += (w.ox - w.x) * 0.001;
+      w.vy += (w.oy - w.y) * 0.001;
+      w.vx += Math.sin(time * 0.5 + w.idx) * 0.02;
+      w.vy += Math.cos(time * 0.4 + w.idx) * 0.02;
+      if (mouse.active && !PERF.disableMouse) {
+        let dx = w.x - mouse.x, dy = w.y - mouse.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 280) {
+          let force = (280 - dist) / 280;
+          w.vx += (mouse.vx * 0.02 + (dx / dist) * 0.5) * force;
+          w.vy += (mouse.vy * 0.02 + (dy / dist) * 0.5) * force;
+        }
+      }
+      w.vx *= 0.94;
+      w.vy *= 0.94;
+      w.x += w.vx;
+      w.y += w.vy;
+    };
+
+    // PASS 1: Non-signal words (never shadowed)
     for (let k = 0; k < words.length; k++) {
       const w = words[k];
-      if (w.dissolved) continue;
+      if (w.dissolved || w.isSignal) continue;
 
-      let tx = w.x,
-        ty = w.y,
-        tz = w.z;
+      let tx = w.x, ty = w.y, tz = w.z;
       let alpha = 1;
-      let col = w.isSignal ? "#FF5E00" : "#B8B8CC";
+      let col = "#B8B8CC";
       let font = "600 " + w.baseSize + 'px "Satoshi", sans-serif';
-      let useShadow = false;
+      let drawIt = true;
 
       if (p < 0.15) {
-        w.vx += (w.ox - w.x) * 0.001;
-        w.vy += (w.oy - w.y) * 0.001;
-        w.vx += Math.sin(time * 0.5 + w.idx) * 0.02;
-        w.vy += Math.cos(time * 0.4 + w.idx) * 0.02;
-
-        if (mouse.active && !PERF.disableMouse) {
-          let dx = w.x - mouse.x,
-            dy = w.y - mouse.y;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 280) {
-            let force = (280 - dist) / 280;
-            w.vx += (mouse.vx * 0.02 + (dx / dist) * 0.5) * force;
-            w.vy += (mouse.vy * 0.02 + (dy / dist) * 0.5) * force;
-          }
-        }
-
-        w.vx *= 0.94;
-        w.vy *= 0.94;
-        w.x += w.vx;
-        w.y += w.vy;
+        applyChaosPhysics(w);
         tx = w.x;
         ty = w.y;
         alpha = 0.6 + 0.4 * Math.sin(time * 2 + w.idx);
       } else if (p < 0.35) {
-        if (!w.isSignal) {
-          w.vx += (w.x - cx) * 0.0005;
-          w.vy += (w.y - cy) * 0.0005;
-          w.x += w.vx;
-          w.y += w.vy;
-          alpha = 1 - pf;
-          if (pf > 0.8) w.dissolved = true;
-        } else {
-          w.orbA += 0.015;
-          const targetX = cx + Math.cos(w.orbA) * w.orbR;
-          const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
-          w.x = lerp(w.x, targetX, easeInOutCubic(pf));
-          w.y = lerp(w.y, targetY, easeInOutCubic(pf));
-          tx = w.x;
-          ty = w.y;
-          tz = 100;
-          col = "#FF5E00";
-          alpha = Math.min(1, 0.4 + pf);
-        }
+        w.vx += (w.x - cx) * 0.0005;
+        w.vy += (w.y - cy) * 0.0005;
+        w.x += w.vx;
+        w.y += w.vy;
+        alpha = 1 - pf;
+        drawIt = alpha > 0.005;
+      } else {
+        drawIt = false;
+      }
+
+      if (!drawIt) continue;
+      const scale = 500 / (500 + Math.max(0, tz));
+      if (scale > 0 && scale < 10) {
+        drawWord(w, tx, ty, scale, alpha, col, font);
+      }
+    }
+
+    // PASS 2: Signal words (with smooth shadow)
+    if (shadowStrength > 0.005 && !PERF.disableShadows) {
+      ctx.shadowColor = "rgba(255,94,0," + (0.4 * shadowStrength) + ")";
+      ctx.shadowBlur = 12 * shadowStrength;
+    }
+
+    for (let k = 0; k < words.length; k++) {
+      const w = words[k];
+      if (w.dissolved || !w.isSignal) continue;
+
+      let tx = w.x, ty = w.y, tz = w.z;
+      let alpha = 1;
+      let col = "#FF5E00";
+      let font = "600 " + w.baseSize + 'px "Satoshi", sans-serif';
+      let drawIt = true;
+
+      if (p < 0.15) {
+        applyChaosPhysics(w);
+        tx = w.x;
+        ty = w.y;
+        // Smooth transition: brighten and push forward as p approaches 0.15
+        const chaosAlpha = 0.6 + 0.4 * Math.sin(time * 2 + w.idx);
+        alpha = lerp(chaosAlpha, 1, pc);
+        tz = lerp(w.z, 100, pc);
+      } else if (p < 0.35) {
+        w.orbA += 0.015;
+        const targetX = cx + Math.cos(w.orbA) * w.orbR;
+        const targetY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
+        w.x = lerp(w.x, targetX, easeInOutCubic(pf));
+        w.y = lerp(w.y, targetY, easeInOutCubic(pf));
+        tx = w.x;
+        ty = w.y;
+        tz = 100;
+        col = "#FF5E00";
+        alpha = Math.min(1, 0.4 + pf);
       } else if (p < 0.55) {
-        if (!w.isSignal) {
-          w.dissolved = true;
-          continue;
-        }
-        col = w.col === 1 ? "#1A6AFF" : "#FF5E00";
         const targetX = startX + w.col * colW;
         const targetY = startY + w.row * rowH;
         const orbitX = cx + Math.cos(w.orbA) * w.orbR;
         const orbitY = cy + Math.sin(w.orbA) * (w.orbR * 0.3);
         if (!w.keepsSlot) {
-          w.x = orbitX;
-          w.y = orbitY - pa * 100;
+          // Smooth orbit continuation (no snap to orbitX)
+          w.x = lerp(w.x, orbitX, 0.05);
+          w.y = lerp(w.y, orbitY - pa * 100, 0.05);
           tx = w.x;
           ty = w.y;
           alpha = 1 - easeInOutCubic(pa);
-          if (pa > 0.8) w.dissolved = true;
+          drawIt = alpha > 0.005;
         } else {
-          w.x = lerp(orbitX, targetX, easeInOutCubic(pa));
-          w.y = lerp(orbitY, targetY, easeInOutCubic(pa));
+          // Smooth glide from current position to grid (no orbit snap)
+          w.x = lerp(w.x, targetX, easeInOutCubic(pa));
+          w.y = lerp(w.y, targetY, easeInOutCubic(pa));
           tx = w.x;
           ty = w.y;
           tz = lerp(100, 0, pa);
+          // Smooth color transition: orange → target over first half of phase
+          const targetCol = w.col === 1 ? "#1A6AFF" : "#FF5E00";
+          col = hexLerp(Math.min(1, pa * 2), "#FF5E00", targetCol);
         }
       } else if (p < 0.95) {
-        if (!w.isSignal || !w.keepsSlot) {
-          w.dissolved = true;
-          continue;
+        if (!w.keepsSlot) {
+          drawIt = false;
+        } else {
+          const targetX = startX + w.col * colW;
+          const targetY = startY + w.row * rowH;
+          const targetCol = w.col === 1 ? "#1A6AFF" : "#FF5E00";
+          col = targetCol;
+          tz = 0;
+          tx = targetX;
+          ty = targetY - po * 420;
+          alpha = Math.max(0, 1 - po * 1.45);
+          drawIt = alpha > 0.005;
         }
-        col = w.col === 1 ? "#1A6AFF" : "#FF5E00";
-        const targetX = startX + w.col * colW;
-        const targetY = startY + w.row * rowH;
-        tz = 0;
-        tx = targetX;
-        ty = targetY - po * 420;
-        alpha = Math.max(0, 1 - po * 1.45);
-        if (alpha <= 0) w.dissolved = true;
       } else {
         alpha = 0;
+        drawIt = false;
       }
 
-      if (alpha > 0 && !w.dissolved) {
-        const scale = 500 / (500 + Math.max(0, tz));
-        if (scale > 0 && scale < 10) {
-          // Apply shadow only for signal words in non-chaos phases
-          const needsShadow =
-            !PERF.disableShadows && w.isSignal && p > 0.15 && p < 0.95;
-          if (needsShadow) {
-            ctx.shadowColor = "rgba(255,94,0,0.4)";
-            ctx.shadowBlur = 12;
-          } else {
-            ctx.shadowColor = "transparent";
-            ctx.shadowBlur = 0;
-          }
-          drawWord(w, tx, ty, scale, alpha, col, font);
-        }
+      if (!drawIt) continue;
+      const scale = 500 / (500 + Math.max(0, tz));
+      if (scale > 0 && scale < 10) {
+        drawWord(w, tx, ty, scale, alpha, col, font);
       }
     }
 
@@ -1940,22 +1982,20 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     ctx.fill();
 
     // Concentric rings
-    if (p2 > 0) {
-      ctx.lineWidth = 0.8;
-      ctx.setLineDash([2, 5]);
-      for (let r = 45; r <= 220; r += 44) {
-        const rr = r * (0.25 + p2 * 0.75);
-        ctx.beginPath();
-        ctx.arc(cx, cy, rr, 0, TAU);
-        ctx.strokeStyle = "rgba(255,94,0," + p2 * 0.24 * (1 - r / 260) + ")";
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 5]);
+    for (let r = 45; r <= 220; r += 44) {
+      const rr = r * (0.25 + p2 * 0.75);
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, TAU);
+      ctx.strokeStyle = "rgba(255,94,0," + p2 * 0.24 * (1 - r / 260) + ")";
+      ctx.stroke();
     }
+    ctx.setLineDash([]);
 
     // Crosshair
-    if (p2 > 0.15) {
-      const ca = ((p2 - 0.15) / 0.85) * 0.18;
+    const ca = Math.max(0, ((p2 - 0.15) / 0.85) * 0.18);
+    if (ca > 0) {
       ctx.strokeStyle = "rgba(244,244,248," + ca + ")";
       ctx.lineWidth = 0.5;
       ctx.beginPath();
@@ -1969,31 +2009,27 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     }
 
     // Pulsing outer ring
-    if (p3 > 0) {
-      const pulse = 0.5 + Math.sin(time * 1.8) * 0.5;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 225 + pulse * 25, 0, TAU);
-      ctx.strokeStyle = "rgba(255,94,0," + p3 * 0.14 * pulse + ")";
-      ctx.lineWidth = 1.6;
-      ctx.stroke();
-    }
+    const pulse = 0.5 + Math.sin(time * 1.8) * 0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 225 + pulse * 25, 0, TAU);
+    ctx.strokeStyle = "rgba(255,94,0," + p3 * 0.14 * pulse + ")";
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
 
     // Radiating signal lines
-    if (p3 > 0) {
-      ctx.strokeStyle = "rgba(255,94,0," + p3 * 0.09 + ")";
-      ctx.lineWidth = 1.2;
-      for (let i = 0; i < 16; i++) {
-        const a = (i / 16) * TAU + time * 0.1;
-        const inner = 220;
-        const len = 70 + p3 * 180;
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
-        ctx.lineTo(
-          cx + Math.cos(a) * (inner + len),
-          cy + Math.sin(a) * (inner + len),
-        );
-        ctx.stroke();
-      }
+    ctx.strokeStyle = "rgba(255,94,0," + p3 * 0.09 + ")";
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU + time * 0.1;
+      const inner = 220;
+      const len = 70 + p3 * 180;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+      ctx.lineTo(
+        cx + Math.cos(a) * (inner + len),
+        cy + Math.sin(a) * (inner + len),
+      );
+      ctx.stroke();
     }
 
     // Particles
@@ -2017,7 +2053,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
         "hsla(" + p.hue + "," + sat + "%," + lit + "%," + alpha + ")";
       ctx.fill();
 
-      if (p3 > 0 && !PERF.disableShadows) {
+      if (!PERF.disableShadows) {
         ctx.beginPath();
         ctx.arc(x, y, r * 4, 0, TAU);
         ctx.fillStyle =
@@ -2027,17 +2063,15 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     }
 
     // Center dot
-    if (p2 > 0.15) {
-      const da = Math.min(1, (p2 - 0.15) / 0.35);
-      ctx.beginPath();
-      ctx.arc(cx, cy, 5.5, 0, TAU);
-      ctx.fillStyle = "rgba(244,244,248," + da * 0.95 + ")";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx, cy, 22, 0, TAU);
-      ctx.fillStyle = "rgba(255,94,0," + da * 0.16 + ")";
-      ctx.fill();
-    }
+    const da = Math.max(0, Math.min(1, (p2 - 0.15) / 0.35));
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5.5, 0, TAU);
+    ctx.fillStyle = "rgba(244,244,248," + da * 0.95 + ")";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 22, 0, TAU);
+    ctx.fillStyle = "rgba(255,94,0," + da * 0.16 + ")";
+    ctx.fill();
 
     // Text fragments
     const fPos = [];
@@ -2066,21 +2100,19 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     ctx.textBaseline = "alphabetic";
 
     // Constellation lines
-    if (conv > 0.2) {
-      const lf = (conv - 0.2) / 0.8;
-      const maxD = 260 - conv * 140;
-      ctx.lineWidth = 0.6;
-      for (let i = 0; i < fPos.length; i++) {
-        for (let j = i + 1; j < fPos.length; j++) {
-          const d = Math.hypot(fPos[i].x - fPos[j].x, fPos[i].y - fPos[j].y);
-          if (d < maxD) {
-            ctx.beginPath();
-            ctx.moveTo(fPos[i].x, fPos[i].y);
-            ctx.lineTo(fPos[j].x, fPos[j].y);
-            ctx.strokeStyle =
-              "rgba(255,94,0," + lf * 0.14 * (1 - d / maxD) + ")";
-            ctx.stroke();
-          }
+    const lf = Math.max(0, (conv - 0.2) / 0.8);
+    const maxD = 260 - conv * 140;
+    ctx.lineWidth = 0.6;
+    for (let i = 0; i < fPos.length; i++) {
+      for (let j = i + 1; j < fPos.length; j++) {
+        const d = Math.hypot(fPos[i].x - fPos[j].x, fPos[i].y - fPos[j].y);
+        if (d < maxD) {
+          ctx.beginPath();
+          ctx.moveTo(fPos[i].x, fPos[i].y);
+          ctx.lineTo(fPos[j].x, fPos[j].y);
+          ctx.strokeStyle =
+            "rgba(255,94,0," + lf * 0.14 * (1 - d / maxD) + ")";
+          ctx.stroke();
         }
       }
     }
