@@ -90,15 +90,22 @@ document.addEventListener("visibilitychange", () => {
   }, duration + 500);
 })();
 
-/* ---------- Canvas memory release on page hide ---------- */
-window.addEventListener("pagehide", () => {
-  document.querySelectorAll("canvas").forEach((cv) => {
-    cv.width = 1;
-    cv.height = 1;
-    const ctx = cv.getContext("2d");
-    ctx && ctx.clearRect(0, 0, 1, 1);
-  });
-});
+/* ---------- Unified RAF-throttled scroll loop ---------- */
+const SCROLL_STATE = { y: 0, ticking: false };
+const SCROLL_CBS = [];
+function onScrollThrottled(fn) {
+  SCROLL_CBS.push(fn);
+}
+window.addEventListener("scroll", () => {
+  SCROLL_STATE.y = window.scrollY;
+  if (!SCROLL_STATE.ticking) {
+    requestAnimationFrame(() => {
+      SCROLL_CBS.forEach((fn) => fn());
+      SCROLL_STATE.ticking = false;
+    });
+    SCROLL_STATE.ticking = true;
+  }
+}, { passive: true });
 
 /* ---------- GSAP Global Setup ---------- */
 if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
@@ -156,11 +163,15 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   if (!nav) return;
   nav.classList.add("is-hero");
 
+  let lastScrollY = -1;
   const upd = () => {
-    nav.classList.toggle("is-scrolled", window.scrollY > 30);
+    const sy = window.scrollY;
+    if (sy === lastScrollY) return;
+    lastScrollY = sy;
+    nav.classList.toggle("is-scrolled", sy > 30);
   };
   upd();
-  window.addEventListener("scroll", upd, { passive: true });
+  onScrollThrottled(upd);
 
   const premise = document.getElementById("premise");
   const heroLogo = document.querySelector(".hero-logo-wrap");
@@ -177,7 +188,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       }
       if (heroLogo) heroLogo.classList.add("is-hidden");
     };
-    window.addEventListener("scroll", check, { passive: true });
+    onScrollThrottled(check);
     window.addEventListener("resize", () => {
       premiseTop = premise.offsetTop;
     });
@@ -466,7 +477,8 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     H,
     dpr,
     time = 0,
-    raf;
+    raf,
+    voiceFrameSkip = 0;
 
   function resize() {
     const rect = container.getBoundingClientRect();
@@ -519,6 +531,14 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   }
 
   function draw() {
+    // Frame skip for low-end / mobile
+    voiceFrameSkip++;
+    if (voiceFrameSkip < (PERF.isLowEnd ? 2 : 1)) {
+      raf = requestAnimationFrame(draw);
+      return;
+    }
+    voiceFrameSkip = 0;
+
     ctx.clearRect(0, 0, W, H);
 
     // Fingerprint ridges
@@ -719,24 +739,27 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     fill.style.height = pct * 100 + "%";
   };
   upd();
-  window.addEventListener("scroll", upd, { passive: true });
-  window.addEventListener("resize", upd);
+  onScrollThrottled(upd);
 })();
 
 /* ---------- Bento cursor glow ---------- */
 (function bentoGlow() {
   if (PERF.isMobile) return;
   document.querySelectorAll(".bento-card").forEach((card) => {
+    let glowRaf;
     card.addEventListener("mousemove", (e) => {
-      const r = card.getBoundingClientRect();
-      card.style.setProperty(
-        "--mx",
-        ((e.clientX - r.left) / r.width) * 100 + "%",
-      );
-      card.style.setProperty(
-        "--my",
-        ((e.clientY - r.top) / r.height) * 100 + "%",
-      );
+      cancelAnimationFrame(glowRaf);
+      glowRaf = requestAnimationFrame(() => {
+        const r = card.getBoundingClientRect();
+        card.style.setProperty(
+          "--mx",
+          ((e.clientX - r.left) / r.width) * 100 + "%",
+        );
+        card.style.setProperty(
+          "--my",
+          ((e.clientY - r.top) / r.height) * 100 + "%",
+        );
+      });
     });
   });
 })();
@@ -766,7 +789,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     });
   };
 
-  window.addEventListener("scroll", upd, { passive: true });
+  onScrollThrottled(upd);
   upd();
 })();
 
@@ -775,11 +798,15 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   if (REDUCED || PERF.isMobile) return;
   const els = document.querySelectorAll("[data-magnetic]");
   els.forEach((el) => {
-    let raf;
+    let raf, rect;
+    // Cache rect on enter, not on every mousemove
+    el.addEventListener("mouseenter", () => {
+      rect = el.getBoundingClientRect();
+    });
     el.addEventListener("mousemove", (e) => {
-      const r = el.getBoundingClientRect();
-      const x = e.clientX - (r.left + r.width / 2);
-      const y = e.clientY - (r.top + r.height / 2);
+      if (!rect) rect = el.getBoundingClientRect();
+      const x = e.clientX - (rect.left + rect.width / 2);
+      const y = e.clientY - (rect.top + rect.height / 2);
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         el.style.transform = "translate(" + x * 0.18 + "px," + y * 0.22 + "px)";
@@ -788,6 +815,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     el.addEventListener("mouseleave", () => {
       cancelAnimationFrame(raf);
       el.style.transform = "";
+      rect = null;
     });
   });
 })();
@@ -954,6 +982,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   let t = 0;
   let raf;
   let lastFrame = 0;
+  let flowFrameSkip = 0;
   const heroContent = document.getElementById("heroContent");
 
   const step = (now) => {
@@ -967,6 +996,14 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       raf = requestAnimationFrame(step);
       return;
     }
+
+    // Frame skip for low-end / mobile
+    flowFrameSkip++;
+    if (flowFrameSkip < (PERF.isLowEnd ? 2 : 1)) {
+      raf = requestAnimationFrame(step);
+      return;
+    }
+    flowFrameSkip = 0;
     lastFrame = now;
 
     ctx.fillStyle = "#050810";
@@ -1181,6 +1218,10 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   let words = [];
   let gridTitles = [];
   let flowParticles = [];
+  let isMobileLayout = window.innerWidth <= 900;
+  window.addEventListener("resize", () => {
+    isMobileLayout = window.innerWidth <= 900;
+  });
 
   function noiseFn(x, y) {
     return (
@@ -1225,10 +1266,10 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
         vx: 0,
         vy: 0,
         baseSize: isSignal
-          ? window.innerWidth <= 900
+          ? isMobileLayout
             ? 12 + Math.random() * 3
             : 16 + Math.random() * 5
-          : window.innerWidth <= 900
+          : isMobileLayout
             ? 10 + Math.random() * 2
             : 14 + Math.random() * 4,
         alpha: 0,
@@ -1271,10 +1312,11 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
           vy: 0,
           life: Math.random() * 100,
           maxLife: 50 + Math.random() * 100,
-          color:
+          colorBase:
             Math.random() > 0.5
-              ? "rgba(255,94,0,0.15)"
-              : "rgba(26,106,255,0.15)",
+              ? "rgba(255,94,0,"
+              : "rgba(26,106,255,",
+        colorAlpha: 0.15,
         });
       }
     }
@@ -1313,10 +1355,12 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   const phaseNetwork = (p) => Math.max(0, Math.min(1, (p - 0.75) / 0.2));
   const phaseFade = (p) => Math.max(0, Math.min(1, (p - 0.95) / 0.05));
 
-  // Pre-create vignette gradient when possible
+  // Pre-create vignette gradient — invalidated on resize
   let vignetteGrad = null;
+  let vignetteKey = "";
   function getVignette(cx, cy, outer) {
-    if (!vignetteGrad) {
+    const key = Math.round(cx) + "," + Math.round(cy) + "," + Math.round(outer);
+    if (!vignetteGrad || vignetteKey !== key) {
       vignetteGrad = ctx.createRadialGradient(
         cx,
         cy,
@@ -1327,12 +1371,21 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       );
       vignetteGrad.addColorStop(0, "transparent");
       vignetteGrad.addColorStop(1, "rgba(5,8,16,0.6)");
+      vignetteKey = key;
     }
     return vignetteGrad;
   }
 
   let frameSkip = 0;
+  const FRAME_EVERY = PERF.isLowEnd ? 2 : 1;
   function draw(now) {
+    // Frame skip for low-end / mobile devices
+    frameSkip++;
+    if (frameSkip < FRAME_EVERY) {
+      raf = requestAnimationFrame(draw);
+      return;
+    }
+    frameSkip = 0;
     if (!DOC_VISIBLE) {
       raf = requestAnimationFrame(draw);
       return;
@@ -1386,10 +1439,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
         fp.y += fp.vy * 2;
         ctx.lineTo(fp.x, fp.y);
         let lifeRatio = Math.sin((fp.life / fp.maxLife) * Math.PI);
-        ctx.strokeStyle = fp.color.replace(
-          "0.15",
-          (0.3 * lifeRatio).toFixed(2),
-        );
+        ctx.strokeStyle = fp.colorBase + (0.3 * lifeRatio).toFixed(2) + ")";
         ctx.stroke();
         fp.life++;
         if (
@@ -1450,7 +1500,6 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    const isMobileLayout = window.innerWidth <= 900;
     const colW = isMobileLayout ? Math.min(180, W / 3.2) : 180;
     const rowH = isMobileLayout ? 24 : 36;
     const totalCols = 3;
@@ -1814,10 +1863,14 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
   ];
   let textFrags = [];
 
+  let isMobileLayoutHorizon = window.innerWidth <= 1024;
+  window.addEventListener("resize", () => {
+    isMobileLayoutHorizon = window.innerWidth <= 1024;
+  });
+
   function initFragments() {
-    const isMobileLayout = window.innerWidth <= 1024;
-    const cx = isMobileLayout ? W * 0.5 : W * 0.72;
-    const cy = isMobileLayout ? H * 0.35 : H * 0.5;
+    const cx = isMobileLayoutHorizon ? W * 0.5 : W * 0.72;
+    const cy = isMobileLayoutHorizon ? H * 0.35 : H * 0.5;
     const R = Math.min(W * 0.15, 155);
     textFrags = FRAGS.map((t, i) => {
       const convAngle = (i / FRAGS.length) * TAU - Math.PI / 2;
@@ -1855,14 +1908,21 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       return;
     }
 
+    // Frame skip for low-end / mobile devices
+    frameSkip++;
+    if (frameSkip < (PERF.isLowEnd ? 2 : 1)) {
+      raf = requestAnimationFrame(draw);
+      return;
+    }
+    frameSkip = 0;
+
     lastFrame = now;
 
     ctx.clearRect(0, 0, W, H);
     time += 0.012;
 
-    const isMobileLayout = window.innerWidth <= 1024;
-    const cx = isMobileLayout ? W * 0.5 : W * 0.72;
-    const cy = isMobileLayout ? H * 0.35 : H * 0.5;
+    const cx = isMobileLayoutHorizon ? W * 0.5 : W * 0.72;
+    const cy = isMobileLayoutHorizon ? H * 0.35 : H * 0.5;
 
     const p2 = Math.max(0, Math.min(1, (progress - 0.26) * 2.7));
     const p3 = Math.max(0, Math.min(1, (progress - 0.6) * 2.5));
@@ -2059,7 +2119,7 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
     io.observe(wrap);
   }
 
-  window.addEventListener("scroll", updateScroll, { passive: true });
+  onScrollThrottled(updateScroll);
   let horizonResizeTimer;
   window.addEventListener("resize", () => {
     clearTimeout(horizonResizeTimer);
@@ -2117,6 +2177,22 @@ if (typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined") {
       }
     }
   });
+})();
+
+/* ---------- Pause off-screen CSS animations ---------- */
+(function pauseOffScreenAnimations() {
+  const selectors = ['.marquee-track', '.ls-track'];
+  const targets = [];
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => targets.push(el));
+  });
+  if (!targets.length || !("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      en.target.style.animationPlayState = en.isIntersecting ? 'running' : 'paused';
+    });
+  }, { threshold: 0 });
+  targets.forEach(el => io.observe(el));
 })();
 
 /* ---------- Bento Cards Scroll Reveal ---------- */

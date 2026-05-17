@@ -502,7 +502,6 @@ main {
     max(var(--gutter), calc((100vw - var(--container)) / 2 + var(--gutter)))
     100px;
   background-color: var(--bg);
-  /* content-visibility removed: caused layout-shift glitches during scroll */
 }
 .section::before {
   content: "";
@@ -758,6 +757,7 @@ main {
   height: 100%;
   z-index: -1;
   opacity: 0.85;
+  will-change: transform;
 }
 #storm-canvas {
   position: absolute;
@@ -765,6 +765,7 @@ main {
   width: 100%;
   height: 100%;
   z-index: 0;
+  will-change: transform;
 }
 .hero-noise {
   position: absolute;
@@ -1852,6 +1853,7 @@ html.lenis body {
   width: 100%;
   height: 100%;
   z-index: 0;
+  will-change: transform;
 }
 .horizon-fade {
   position: absolute;
@@ -3466,7 +3468,7 @@ html.lenis body {
     padding: 6px 14px;
   }
   .hpb-stat {
-    font-size: 10px;
+    font-size: 12px;
   }
   .hpb-dot {
     display: none;
@@ -3540,8 +3542,8 @@ html.lenis body {
     font-size: clamp(28px, 5.5vw, 42px);
   }
   .ha-body {
-    font-size: clamp(15px, 1.8vw, 18px);
-    line-height: 1.6;
+    font-size: clamp(16px, 1.9vw, 19px);
+    line-height: 1.65;
     max-width: none;
   }
 }
@@ -3595,7 +3597,22 @@ html.lenis body {
     display: none;
   }
   .hero-wrap {
-    min-height: 550vh;
+    min-height: 380vh;
+  }
+  /* Reduce expensive backdrop-filters on tablet */
+  .nav.is-scrolled,
+  .nav.is-hero {
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+  }
+  .hero-logo-wrap {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .storm-overlay,
+  .storm-overlay[data-phase="0"] {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
   .hero-logo {
     height: 52px;
@@ -3763,7 +3780,69 @@ html.lenis body {
     height: 44px;
   }
   .hero-wrap {
-    min-height: 500vh;
+    min-height: 320vh;
+  }
+  /* Further reduce backdrop-filter on mobile */
+  .nav.is-scrolled,
+  .nav.is-hero {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(5, 8, 16, 0.92);
+  }
+  .hero-logo-wrap {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(5, 8, 16, 0.65);
+  }
+  .hero-rail-right {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(5, 8, 16, 0.7);
+  }
+  .hero-preview-bar .hpb-inner {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(5, 8, 16, 0.92);
+  }
+  .storm-overlay,
+  .storm-overlay[data-phase="0"] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(5, 8, 16, 0.75);
+  }
+  .hero-eyebrow {
+    backdrop-filter: none;
+    background: rgba(5, 8, 16, 0.6);
+  }
+  /* Reduce expensive filter blur and glow on mobile */
+  .cc-orb {
+    filter: blur(30px);
+  }
+  .rail-fill {
+    box-shadow: none;
+  }
+  .hp-dot.is-hit {
+    box-shadow: none;
+  }
+  .btn-dot {
+    box-shadow: none;
+  }
+  /* Disable mask-image on mobile (GPU killer) */
+  body::after {
+    display: none;
+  }
+  .hero-sticky::after {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  /* Reduce noise and mix-blend-mode on mobile */
+  .hero-noise {
+    opacity: 0.02;
+    mix-blend-mode: normal;
+  }
+  .cc-grain {
+    opacity: 0.15;
+    mix-blend-mode: normal;
   }
   .hero-sticky {
     height: 100svh;
@@ -3816,7 +3895,7 @@ html.lenis body {
   /* Hero trust badge */
   .hero-trust {
     bottom: clamp(110px, 11vh, 150px);
-    font-size: clamp(7px, 0.8vw, 9px);
+    font-size: clamp(10px, 1.2vw, 12px);
     letter-spacing: 0.04em;
   }
   .ht-names {
@@ -3846,13 +3925,13 @@ html.lenis body {
     vertical-align: 0.24em;
   }
   .hero-eyebrow {
-    font-size: 9px;
+    font-size: 11px;
     gap: 10px;
     padding: 8px 12px;
   }
   .hero-sub {
-    font-size: 15px;
-    line-height: 1.5;
+    font-size: 16px;
+    line-height: 1.55;
     max-width: none;
   }
   .hero-actions {
@@ -3931,7 +4010,8 @@ html.lenis body {
     font-size: clamp(24px, 6vw, 32px);
   }
   .ps-body {
-    font-size: 14px;
+    font-size: 15px;
+    line-height: 1.6;
     max-width: none;
   }
   .ps-list li {
@@ -3963,7 +4043,8 @@ html.lenis body {
     font-size: 20px;
   }
   .bc-body {
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 1.55;
     max-width: none;
   }
   .bc-art.bar-chart {
@@ -3985,8 +4066,8 @@ html.lenis body {
     padding: 20px;
   }
   .proof-quote blockquote {
-    font-size: 16px;
-    line-height: 1.45;
+    font-size: 17px;
+    line-height: 1.5;
     max-width: none;
   }
   .psv-num {
@@ -4044,7 +4125,7 @@ html.lenis body {
     --gutter: 16px;
   }
   .hero-wrap {
-    min-height: 450vh;
+    min-height: 260vh;
   }
   .hero-title {
     font-size: clamp(24px, 7.5vw, 34px);
@@ -4070,11 +4151,11 @@ html.lenis body {
     gap: 8px;
   }
   .hpb-stat {
-    font-size: 9px;
+    font-size: 11px;
   }
   .hero-trust {
     bottom: 100px;
-    font-size: 7px;
+    font-size: 10px;
   }
   .section {
     padding: 80px var(--gutter) 60px;
@@ -4091,7 +4172,10 @@ html.lenis body {
     font-size: 11px;
   }
   .prem-list h3 {
-    font-size: 18px;
+    font-size: 20px;
+  }
+  .prem-list p {
+    font-size: 14px;
   }
   .prem-list p {
     font-size: 13px;
@@ -4114,7 +4198,7 @@ html.lenis body {
     font-size: 13px;
   }
   .pq-role {
-    font-size: 9px;
+    font-size: 11px;
   }
   .proof-mini p {
     font-size: 14px;
@@ -4135,13 +4219,14 @@ html.lenis body {
 
 @media (max-width: 480px) {
   .hero-wrap {
-    min-height: 400vh;
+    min-height: 220vh;
   }
   .hero-title {
     font-size: clamp(22px, 7.5vw, 30px);
   }
   .hero-sub {
-    font-size: 14px;
+    font-size: 15px;
+    line-height: 1.55;
   }
   .hero-floor {
     padding-top: 20px;
@@ -4179,7 +4264,8 @@ html.lenis body {
     font-size: 20px;
   }
   .proof-quote blockquote {
-    font-size: 14px;
+    font-size: 15px;
+    line-height: 1.5;
   }
   .psv-num {
     font-size: 32px;
@@ -4194,7 +4280,7 @@ html.lenis body {
     font-size: clamp(28px, 9vw, 44px);
   }
   .fb-links {
-    font-size: 11px;
+    font-size: 13px;
     gap: 10px;
   }
 }
